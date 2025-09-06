@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>foot Manager</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <style>
+        body { background-color: #2e2e2e; color: #f0f0f0; font-family: sans-serif; padding: 0; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        h2 { color: #4fa8e2; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; }
+        h3 { color: #98c379; margin-top: 0;}
+        main { padding: 20px; overflow-y: auto; flex-grow: 1; display: none; }
+        main.active { display: block; }
+        nav { background-color: #1e1e1e; padding: 10px 20px; display: flex; gap: 10px; border-bottom: 2px solid #4fa8e2; flex-shrink: 0; align-items: center; }
+        nav button { background-color: #3a3a3a; color: #f0f0f0; border: 1px solid #555; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        nav button.active { background-color: #4fa8e2; color: #1e1e1e; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #444a57; }
+        th { background-color: #323842; }
+        td.center { text-align: center; }
+        #squad-view ul { list-style-type: none; padding: 0; }
+        #squad-view li { background-color: #3a3a3a; padding: 10px; border-radius: 4px; margin-bottom: 5px; }
+        #tactics-container { display: flex; gap: 20px; }
+        .pitch { background-color: #008000; border: 2px solid white; width: 450px; height: 600px; position: relative; background-image: radial-gradient(circle at center, transparent 70px, white 70px, white 72px, transparent 72px), linear-gradient(to bottom, transparent 49.8%, white 49.8%, white 50.2%, transparent 50.2%); flex-shrink: 0;}
+        .player-dot { position: absolute; width: 30px; height: 30px; background-color: #ffdd00; color: black; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; border: 1px solid black; transform: translate(-50%, -50%); }
+        .tactics-menu { flex-grow: 1; }
+        .tactics-menu select, .tactics-menu button { width: 100%; padding: 10px; background-color: #3a3a3a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 16px; margin-bottom: 15px;}
+        .finance-box, .negotiation-box { background-color: #3a3a3a; padding: 20px; border-radius: 8px; max-width: 500px; margin: 20px auto; }
+        .finance-box p, .negotiation-box p { font-size: 1.2em; margin: 10px 0; display: flex; justify-content: space-between; }
+        .finance-box span, .negotiation-box span { font-weight: bold; color: #61afef; }
+        .search-filters { display: flex; gap: 10px; align-items: center; background-color: #3a3a3a; padding: 15px; border-radius: 8px; }
+        .search-filters input, .search-filters select { padding: 8px; font-size: 14px; background-color: #2e2e2e; color: #f0f0f0; border: 1px solid #555; border-radius: 4px;}
+        .player-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .attribute-box { background-color: #3a3a3a; padding: 15px; border-radius: 8px; }
+        .attribute-box h3 { margin-top: 0; color: #98c379; }
+        .attribute-box p { display: flex; justify-content: space-between; margin: 5px 0; }
+        .negotiation-buttons { display: flex; justify-content: space-around; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <main id="start-screen-view" class="active" style="text-align: center; padding-top: 50px;">
+        <h1>Bem-vindo ao foot Manager</h1>
+        <p style="margin-top: 30px;">Escolha seu time para começar uma nova carreira:</p>
+        <select id="club-selection" style="padding: 10px; font-size: 16px; min-width: 300px;"></select>
+        <button id="btn-start-game" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">Iniciar Jogo</button>
+    </main>
+
+    <div id="main-game-interface" style="display: none; height: 100vh; flex-direction: column;">
+        <nav>
+            <button id="btn-squad">Elenco</button>
+            <button id="btn-tactics">Táticas</button>
+            <button id="btn-finances">Finanças</button>
+            <button id="btn-market">Mercado</button>
+            <button id="btn-competition">Competição</button>
+            <button id="btn-calendar">Calendário</button>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
+                <div id="current-date-display" style="color: #e5c07b; font-weight: bold;"></div>
+                <button id="btn-continue" style="background-color: #98c379; color: #1e1e1e; font-weight: bold;">Continuar</button>
+            </div>
+        </nav>
+
+        <main id="squad-view">
+            <h2 id="squad-header">Elenco</h2>
+            <ul id="player-list"></ul>
+        </main>
+
+        <main id="tactics-view">
+            <h2 id="tactics-header">Esquema Tático</h2>
+            <div id="tactics-container">
+                <div class="pitch" id="pitch"></div>
+                <div class="tactics-menu">
+                    <h3>Opções</h3>
+                    <label for="formation-select">Formação:</label>
+                    <select id="formation-select">
+                        <option value="442">4-4-2</option>
+                        <option value="433">4-3-3</option>
+                        <option value="352">3-5-2</option>
+                    </select>
+                </div>
+            </div>
+        </main>
+        
+        <main id="finances-view">
+            <h2>Finanças do Clube</h2>
+            <div class="finance-box">
+                <p>Saldo Atual: <span id="finance-balance"></span></p>
+                <p>Folha Salarial (Mensal): <span id="finance-wages"></span></p>
+            </div>
+        </main>
+
+        <main id="market-view">
+            <h2>Mercado de Transferências</h2>
+            <div class="search-filters">
+                <input type="text" id="search-name" placeholder="Nome do jogador...">
+                <select id="search-position">
+                    <option value="all">Todas as Posições</option>
+                    <option value="Goleiro">Goleiro</option>
+                    <option value="Zagueiro">Zagueiro</option>
+                    <option value="Meio-campo">Meio-campo</option>
+                    <option value="Atacante">Atacante</option>
+                </select>
+                <button id="btn-search-players">Buscar</button>
+            </div>
+            <table id="search-results-table"></table>
+        </main>
+        
+        <main id="player-profile-view">
+            <button id="btn-back-to-market">Voltar para a Busca</button>
+            <h2 id="profile-player-name"></h2>
+            <div class="player-profile-grid">
+                <div class="attribute-box">
+                    <h3>Informações</h3>
+                    <p>Clube: <span id="profile-club-name"></span></p>
+                    <p>Idade: <span id="profile-age"></span></p>
+                    <p>Posição: <span id="profile-position"></span></p>
+                    <p>Nacionalidade: <span id="profile-nationality"></span></p>
+                    <p>Salário: <span id="profile-wage"></span></p>
+                    <p>Contrato até: <span id="profile-contract"></span></p>
+                    <p>Valor de Mercado: <span id="profile-market-value"></span></p>
+                    <div style="margin-top: 15px; padding: 10px; background-color: #282c34; border-radius: 4px; text-align: right;">
+                        <strong>Seu Saldo:</strong> <span id="profile-my-balance" style="color: #98c379; font-weight: bold;"></span>
+                    </div>
+                    <div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">
+                        <h4>Fazer Proposta</h4>
+                        <div id="offer-suggestion-buttons" style="display: flex; gap: 5px; margin-bottom: 10px;"></div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="text" id="profile-offer-amount" placeholder="Ou digite um valor..." style="padding: 8px; flex-grow: 1;">
+                            <button id="btn-make-offer" style="padding: 8px 12px;">Enviar Proposta</button>
+                        </div>
+                        <p id="offer-response-message" style="margin-top: 10px; height: 20px; font-style: italic;"></p>
+                    </div>
+                </div>
+                <div class="attribute-box"><h3>Atributos Técnicos</h3><p>Finalização: <span id="profile-finishing"></span></p><p>Passe: <span id="profile-passing"></span></p><p>Desarme: <span id="profile-tackling"></span></p></div>
+                <div class="attribute-box"><h3>Atributos Mentais</h3><p>Visão de Jogo: <span id="profile-vision"></span></p><p>Posicionamento: <span id="profile-positioning"></span></p><p>Determinação: <span id="profile-determination"></span></p></div>
+                <div class="attribute-box"><h3>Atributos Físicos</h3><p>Velocidade: <span id="profile-pace"></span></p><p>Fôlego: <span id="profile-stamina"></span></p><p>Força: <span id="profile-strength"></span></p></div>
+            </div>
+        </main>
+        
+        <main id="negotiation-view">
+            <h2>Negociação de Contrato</h2>
+            <div class="negotiation-box">
+                <h3>Proposta de Contrato para <span id="negotiation-player-name"></span></h3>
+                <p>Taxa de Transferência: <span id="negotiation-fee"></span></p>
+                <hr>
+                <p>Salário Exigido: <span id="negotiation-wage"></span></p>
+                <p>Duração do Contrato: <span id="negotiation-length"></span></p>
+                <div class="negotiation-buttons">
+                    <button id="btn-accept-demands" style="background-color: #98c379; color: #1e1e1e;">Aceitar Termos</button>
+                    <button id="btn-reject-negotiation" style="background-color: #e06c75; color: #1e1e1e;">Rejeitar Negociação</button>
+                </div>
+                <p id="negotiation-response-message" style="text-align: center; margin-top: 20px; height: 20px;"></p>
+            </div>
+        </main>
+
+        <main id="competition-view">
+            <h2>Campeonato Brasileiro - Classificação</h2>
+            <table id="league-table"></table>
+        </main>
+
+        <main id="calendar-view">
+            <h2>Calendário de Jogos</h2>
+            <table id="fixtures-table"></table>
+        </main>
+        
+        <main id="matchday-view" style="text-align: center;">
+            <h2>Dia de Jogo!</h2>
+            <div id="matchup-container" style="font-size: 2em; margin: 40px 0;"></div>
+            <button id="btn-play-matchday-game" style="padding: 15px 30px; font-size: 1.2em;">Jogar Partida</button>
+            <div id="matchday-result-container" style="margin-top: 40px;"></div>
+        </main>
+    </div>
+
+    <script src="./renderer.js" type="module"></script>
+</body>
+</html>
