@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainGameInterface = document.getElementById('main-game-interface');
     const clubSelection = document.getElementById('club-selection');
     const btnStartGame = document.getElementById('btn-start-game');
+    const btnGenerateWorld = document.getElementById('btn-generate-world');
+
 
     function showView(viewId) {
         for (const id in views) {
@@ -65,17 +67,36 @@ document.addEventListener('DOMContentLoaded', () => {
         initGameLoop(showView, refreshData);
         showView('squad');
     }
-    async function initializeNewGameScreen() {
+   async function initializeNewGameScreen() {
         const clubs = await window.api.getAllClubs();
         clubSelection.innerHTML = '';
         clubs.forEach(club => { const option = document.createElement('option'); option.value = club.id; option.textContent = club.name; clubSelection.appendChild(option); });
-        btnStartGame.addEventListener('click', async () => {
+        
+        btnStartGame.onclick = async () => { // Alterado para .onclick para evitar múltiplos listeners
             const selectedClubId = clubSelection.value;
             await window.api.startNewGame(selectedClubId);
             views.start.style.display = 'none';
             mainGameInterface.style.display = 'flex';
             initialLoad(); 
-        });
+        };
+
+        // Adicione este novo listener
+        btnGenerateWorld.onclick = async () => { // Alterado para .onclick
+            btnStartGame.disabled = true;
+            btnGenerateWorld.disabled = true;
+            btnGenerateWorld.textContent = 'Gerando...';
+
+            const response = await window.api.generateNewWorld();
+            if (response.success) {
+                await initializeNewGameScreen(); // Recarrega a lista de clubes
+            } else {
+                alert(`Erro ao gerar o mundo: ${response.message}`);
+            }
+
+            btnStartGame.disabled = false;
+            btnGenerateWorld.disabled = false;
+            btnGenerateWorld.textContent = 'Gerar Novo Mundo';
+        };
     }
     buttons.squad.addEventListener('click', () => showView('squad'));
     buttons.tactics.addEventListener('click', () => showView('tactics'));

@@ -37,12 +37,13 @@
     </style>
 </head>
 <body>
-    <main id="start-screen-view" class="active" style="text-align: center; padding-top: 50px;">
-        <h1>Bem-vindo ao foot Manager</h1>
-        <p style="margin-top: 30px;">Escolha seu time para começar uma nova carreira:</p>
-        <select id="club-selection" style="padding: 10px; font-size: 16px; min-width: 300px;"></select>
-        <button id="btn-start-game" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">Iniciar Jogo</button>
-    </main>
+<main id="start-screen-view" class="active" style="text-align: center; padding-top: 50px;">
+    <h1>Bem-vindo ao foot Manager</h1>
+    <p style="margin-top: 30px;">Escolha seu time para começar uma nova carreira:</p>
+    <select id="club-selection" style="padding: 10px; font-size: 16px; min-width: 300px;"></select>
+    <button id="btn-start-game" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">Iniciar Jogo</button>
+    <button id="btn-generate-world" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">Gerar Novo Mundo</button>
+</main>
 
     <div id="main-game-interface" style="display: none; height: 100vh; flex-direction: column;">
         <nav>
@@ -104,7 +105,7 @@
         </main>
         
         <main id="player-profile-view">
-            <button id="btn-back-to-market">Voltar para a Busca</button>
+            <button id="btn-back-from-profile">Voltar</button>
             <h2 id="profile-player-name"></h2>
             <div class="player-profile-grid">
                 <div class="attribute-box">
@@ -115,24 +116,62 @@
                     <p>Nacionalidade: <span id="profile-nationality"></span></p>
                     <p>Salário: <span id="profile-wage"></span></p>
                     <p>Contrato até: <span id="profile-contract"></span></p>
-                    <p>Valor de Mercado: <span id="profile-market-value"></span></p>
-                    <div style="margin-top: 15px; padding: 10px; background-color: #282c34; border-radius: 4px; text-align: right;">
-                        <strong>Seu Saldo:</strong> <span id="profile-my-balance" style="color: #98c379; font-weight: bold;"></span>
-                    </div>
-                    <div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">
-                        <h4>Fazer Proposta</h4>
-                        <div id="offer-suggestion-buttons" style="display: flex; gap: 5px; margin-bottom: 10px;"></div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="text" id="profile-offer-amount" placeholder="Ou digite um valor..." style="padding: 8px; flex-grow: 1;">
-                            <button id="btn-make-offer" style="padding: 8px 12px;">Enviar Proposta</button>
-                        </div>
-                        <p id="offer-response-message" style="margin-top: 10px; height: 20px; font-style: italic;"></p>
-                    </div>
-                </div>
-                <div class="attribute-box"><h3>Atributos Técnicos</h3><p>Finalização: <span id="profile-finishing"></span></p><p>Passe: <span id="profile-passing"></span></p><p>Desarme: <span id="profile-tackling"></span></p></div>
-                <div class="attribute-box"><h3>Atributos Mentais</h3><p>Visão de Jogo: <span id="profile-vision"></span></p><p>Posicionamento: <span id="profile-positioning"></span></p><p>Determinação: <span id="profile-determination"></span></p></div>
-                <div class="attribute-box"><h3>Atributos Físicos</h3><p>Velocidade: <span id="profile-pace"></span></p><p>Fôlego: <span id="profile-stamina"></span></p><p>Força: <span id="profile-strength"></span></p></div>
+<p>Valor de Mercado: <span id="profile-market-value"></span></p>
+
+    <div id="profile-transfer-section">
+        <div style="margin-top: 15px; padding: 10px; background-color: #282c34; border-radius: 4px; text-align: right;">
+            <strong>Seu Saldo:</strong> <span id="profile-my-balance" style="color: #98c379; font-weight: bold;"></span>
+        </div>
+        <div style="margin-top: 20px; border-top: 1px solid #555; padding-top: 15px;">
+            <h4>Fazer Proposta</h4>
+            <div id="offer-suggestion-buttons" style="display: flex; gap: 5px; margin-bottom: 10px;"></div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="text" id="profile-offer-amount" placeholder="Ou digite um valor..." style="padding: 8px; flex-grow: 1;">
+                <button id="btn-make-offer" style="padding: 8px 12px;">Enviar Proposta</button>
             </div>
+            <p id="offer-response-message" style="margin-top: 10px; height: 20px; font-style: italic;"></p>
+        </div>
+    </div> </div>
+
+    <div class="attribute-box">
+    <h3>Atributos Técnicos</h3>
+    <p>Cruzamentos: <span id="profile-crossing"></span></p>
+    <p>Drible: <span id="profile-dribbling"></span></p>
+    <p>Finalização: <span id="profile-finishing"></span></p>
+    <p>Faltas: <span id="profile-free_kicks"></span></p>
+    <p>Cabeceamento: <span id="profile-heading"></span></p>
+    <p>Chute de longe: <span id="profile-long_shots"></span></p>
+    <p>Marcação: <span id="profile-marking"></span></p>
+    <p>Desarme: <span id="profile-tackling"></span></p>
+    <p>Passe: <span id="profile-passing"></span></p>
+    <p>Penalties: <span id="profile-penalties"></span></p>
+</div>
+
+<div class="attribute-box">
+    <h3>Atributos Mentais</h3>
+    <p>Agressividade: <span id="profile-aggression"></span></p>
+    <p>Antecipação: <span id="profile-anticipation"></span></p>
+    <p>Compostura: <span id="profile-composure"></span></p>
+    <p>Concentração: <span id="profile-concentration"></span></p>
+    <p>Decisões: <span id="profile-decisions"></span></p>
+    <p>Determinação: <span id="profile-determination"></span></p>
+    <p>Liderença: <span id="profile-leadership"></span></p>
+    <p>Posicionamento: <span id="profile-positioning"></span></p>
+    <p>Visão de jogo: <span id="profile-vision"></span></p>
+    <p>Taxa de trabalho: <span id="profile-work_rate"></span></p>
+</div>
+
+<div class="attribute-box">
+    <h3>Atributos Físicos</h3>
+    <p>Aceleração: <span id="profile-acceleration"></span></p>
+    <p>Agilidade: <span id="profile-agility"></span></p>
+    <p>Alcance (Equilíbrio): <span id="profile-balance"></span></p>
+    <p>Resistência: <span id="profile-stamina"></span></p>
+    <p>Força: <span id="profile-strength"></span></p>
+    <p>Velocidade: <span id="profile-pace"></span></p>
+</div>
+
+</div>
         </main>
         
         <main id="negotiation-view">

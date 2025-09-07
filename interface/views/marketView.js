@@ -20,6 +20,9 @@ function displaySearchResults(players, showView) {
     searchResultsTable.innerHTML = html;
     document.querySelectorAll('.player-row').forEach(row => {
         row.addEventListener('click', () => {
+            // ADICIONE ESTA LINHA:
+            currentProfilePlayerId = row.dataset.playerId; 
+
             showPlayerProfile(row.dataset.playerId, showView);
         });
     });
@@ -30,7 +33,6 @@ export function initMarketView(showView, refreshData) {
     searchPositionSelect = document.getElementById('search-position');
     btnSearchPlayers = document.getElementById('btn-search-players');
     searchResultsTable = document.getElementById('search-results-table');
-    btnBackToMarket = document.getElementById('btn-back-to-market');
     profileOfferAmount = document.getElementById('profile-offer-amount');
     btnMakeOffer = document.getElementById('btn-make-offer');
     offerResponseMessage = document.getElementById('offer-response-message');
@@ -44,7 +46,6 @@ export function initMarketView(showView, refreshData) {
         displaySearchResults(players, showView);
     });
 
-    btnBackToMarket.addEventListener('click', () => { showView('market'); });
 
     profileOfferAmount.addEventListener('input', () => { formatNumberInput(profileOfferAmount); });
 

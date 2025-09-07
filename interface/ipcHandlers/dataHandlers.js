@@ -9,7 +9,7 @@ function registerDataHandlers() {
         return new Promise((resolve, reject) => {
             db.get("SELECT player_club_id FROM game_state WHERE id = 1", (err, state) => {
                 if (err || !state || !state.player_club_id) return reject("Game state or player club not found");
-                const sql = `SELECT name, position, age, wage, contract_expires FROM players WHERE club_id = ? ORDER BY position`;
+const sql = `SELECT id, name, position, age, wage, contract_expires FROM players WHERE club_id = ? ORDER BY position`;
                 db.all(sql, [state.player_club_id], (err, rows) => {
                     if (err) reject(err.message); else resolve(rows);
                     db.close();

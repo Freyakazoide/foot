@@ -13,5 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   searchPlayers: (filters) => ipcRenderer.invoke('search-players', filters),
   getPlayerDetails: (playerId) => ipcRenderer.invoke('get-player-details', { playerId }),
   makeTransferOffer: (playerId, offerAmount) => ipcRenderer.invoke('make-transfer-offer', { playerId, offerAmount }),
-  finalizeTransfer: (negotiationDetails) => ipcRenderer.invoke('finalize-transfer', { negotiationDetails })
+  finalizeTransfer: (negotiationDetails) => ipcRenderer.invoke('finalize-transfer', { negotiationDetails }),
+  generateNewWorld: () => ipcRenderer.invoke('generate-new-world')
+
 });

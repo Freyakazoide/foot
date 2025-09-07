@@ -44,7 +44,7 @@ export async function loadPlayersData(playerClubName, showView) {
             
             listItem.dataset.playerId = player.id;
             listItem.style.cursor = 'pointer';
-            listItem.addEventListener('click', () => showPlayerProfile(player.id, showView));
+            listItem.addEventListener('click', () => showPlayerProfile(player.id, showView, 'squad'));
             
             playerList.appendChild(listItem);
         });
