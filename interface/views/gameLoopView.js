@@ -55,11 +55,16 @@ export function initGameLoop(showView, refreshData) {
         lineup.forEach(player => {
             html += `
                 <div class="player-line" id="player-${player.id}">
-                    <span>${player.name.split(' ').slice(0, 2).join(' ')} (${player.position.slice(0,3)})</span>
-                    <div class="stamina-bar-container">
-                        <div class="stamina-bar" style="width: 100%;"></div>
+                    <div class="player-info">
+                        <span>${player.name.split(' ').slice(0, 2).join(' ')} (${player.position.slice(0,3)})</span>
+                        <span class="player-goals"></span>
                     </div>
-                    <span class="player-goals"></span>
+                    <div class="player-stamina-info">
+                        <span class="stamina-percentage">100%</span>
+                        <div class="stamina-bar-container">
+                            <div class="stamina-bar" style="width: 100%;"></div>
+                        </div>
+                    </div>
                 </div>
             `;
         });
@@ -76,20 +81,15 @@ export function initGameLoop(showView, refreshData) {
         scoreboard.textContent = `${home_name} ${homeGoals} x ${awayGoals} ${away_name}`;
         commentaryBox.innerHTML = '';
         matchTimer.textContent = "00:00";
-        homeSquadDisplay.innerHTML = `<h3>${home_name}</h3>`;
-        awaySquadDisplay.innerHTML = `<h3>${away_name}</h3>`;
-
+        
         try {
             const result = await window.api.runMatch(id, home_club_id, away_club_id, currentFormation);
             
             renderSquad(homeSquadDisplay, home_name, result.home_lineup);
             renderSquad(awaySquadDisplay, away_name, result.away_lineup);
 
-            // --- NOVA LÓGICA DE TEMPO E NARRAÇÃO ---
             function narrateEvent(eventIndex) {
-                // Se não houver mais eventos, encerra a partida
                 if (eventIndex >= result.events.length) {
-                    matchTimer.textContent = "90:00";
                     speedControls.style.display = 'none';
                     btnFinishMatchday.style.display = 'block';
                     refreshData.fixtures();
@@ -100,7 +100,6 @@ export function initGameLoop(showView, refreshData) {
                 const event = result.events[eventIndex];
                 const currentSpeed = document.querySelector('input[name="speed"]:checked').value;
 
-                // Atualiza o cronômetro para o minuto do evento atual
                 matchTimer.textContent = `${String(event.minute).padStart(2, '0')}:00`;
 
                 const p = document.createElement('p');
@@ -124,8 +123,11 @@ export function initGameLoop(showView, refreshData) {
                 if (event.player_states) {
                     for (const [playerId, stamina] of Object.entries(event.player_states)) {
                         const staminaBar = document.querySelector(`#player-${playerId} .stamina-bar`);
-                        if (staminaBar) {
-                            staminaBar.style.width = `${Math.max(0, stamina)}%`;
+                        const staminaText = document.querySelector(`#player-${playerId} .stamina-percentage`);
+                        if (staminaBar && staminaText) {
+                            const staminaValue = Math.round(stamina);
+                            staminaBar.style.width = `${Math.max(0, staminaValue)}%`;
+                            staminaText.textContent = `${staminaValue}%`;
                             if (stamina < 30) staminaBar.style.backgroundColor = '#e06c75';
                             else if (stamina < 60) staminaBar.style.backgroundColor = '#e5c07b';
                             else staminaBar.style.backgroundColor = '#98c379';
@@ -133,11 +135,10 @@ export function initGameLoop(showView, refreshData) {
                     }
                 }
                 
-                // Chama a narração do próximo evento após o tempo definido pela velocidade
                 setTimeout(() => narrateEvent(eventIndex + 1), currentSpeed);
             }
 
-            narrateEvent(0); // Inicia a narração a partir do primeiro evento
+            narrateEvent(0);
 
         } catch(error) {
             commentaryBox.innerHTML = `<p style="color: #e06c75;">Erro: ${error.message}</p>`;

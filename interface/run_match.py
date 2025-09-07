@@ -10,17 +10,18 @@ FORMATIONS = {
 }
 ZONES = ['Defesa', 'Meio-campo', 'Ataque']
 
-# --- FUNÇÕES DE RESOLUÇÃO DE LANCES (COM LÓGICA DE RESISTÊNCIA) ---
+# --- FUNÇÕES DE RESOLUÇÃO (COM NOVA LÓGICA DE RESISTÊNCIA) ---
 
 def aplicar_penalidade_resistencia(jogador):
     stamina = jogador.get('current_stamina', 100)
-    if stamina > 60: return 1.0
-    elif stamina > 30: return 0.85
-    else: return 0.70
+    if stamina > 70: return 1.0
+    elif stamina > 40: return 0.9
+    elif stamina > 10: return 0.75
+    else: return 0.6
 
-def resolve_passe(passador, receptor, defensor):
+def resolver_passe(passador, receptor, defensor):
     penalidade = aplicar_penalidade_resistencia(passador)
-    passador['current_stamina'] -= 1.5
+    passador['current_stamina'] -= 1.5 * (20 / passador['stamina'])
     pass_power = (passador['passing'] * 0.5 + passador['vision'] * 0.4 + passador['decisions'] * 0.3) * penalidade + random.uniform(-2, 2)
     interception_power = (defensor['anticipation'] * 0.6 + defensor['positioning'] * 0.4) + random.uniform(-3, 3)
     if pass_power > interception_power:
@@ -30,7 +31,7 @@ def resolve_passe(passador, receptor, defensor):
 
 def resolve_drible(driblador, defensor):
     penalidade = aplicar_penalidade_resistencia(driblador)
-    driblador['current_stamina'] -= 3
+    driblador['current_stamina'] -= 3 * (20 / driblador['stamina'])
     drible_power = (driblador['dribbling'] * 0.6 + driblador['agility'] * 0.4) * penalidade + random.uniform(-3, 3)
     tackle_power = (defensor['tackling'] * 0.5 + defensor['decisions'] * 0.3) + random.uniform(-3, 3)
     if drible_power > tackle_power:
@@ -40,7 +41,7 @@ def resolve_drible(driblador, defensor):
 
 def resolve_chute(atacante, possession_holder):
     penalidade = aplicar_penalidade_resistencia(atacante)
-    atacante['current_stamina'] -= 4
+    atacante['current_stamina'] -= 4 * (20 / atacante['stamina'])
     goal_chance = (atacante['finishing'] * 0.7 + atacante['composure'] * 0.4 + atacante['long_shots'] * 0.2) * penalidade / 25.0
     if random.random() < goal_chance:
         return {"outcome": "goal", "team": possession_holder, "scorer_id": atacante['id'], "text": f"CHUTE... E É GOL! GOL! GOL! {atacante['name']} marca!"}
@@ -83,9 +84,8 @@ def simulate_event_based_match(home_squad_data, away_squad_data, formation):
     possession_holder = "home"
     
     for minute in range(1, 91):
-        # Drena um pouco de stamina de todos os jogadores a cada minuto
         for player in home_squad + away_squad:
-            player['current_stamina'] -= 0.2 * (player['work_rate'] / 10)
+            player['current_stamina'] -= 0.2 * (20 / player['stamina'])
         
         if random.random() > 0.7:
             attacking_squad = home_squad if possession_holder == "home" else away_squad
@@ -98,14 +98,14 @@ def simulate_event_based_match(home_squad_data, away_squad_data, formation):
                 if not player: continue
                 receptor = get_player_by_position(attacking_squad, 'Meio-campo')
                 defensor = get_player_by_position(defending_squad, 'Atacante')
-                if receptor and defensor: result = resolve_passe(player, receptor, defensor)
+                if receptor and defensor: result = resolver_passe(player, receptor, defensor)
             elif zone == 'Meio-campo':
                 player = get_player_by_position(attacking_squad, 'Meio-campo')
                 if not player: continue
                 if random.random() > 0.4:
                     receptor = get_player_by_position(attacking_squad, 'Atacante')
                     defensor = get_player_by_position(defending_squad, 'Meio-campo')
-                    if receptor and defensor: result = resolve_passe(player, receptor, defensor)
+                    if receptor and defensor: result = resolver_passe(player, receptor, defensor)
                 else:
                     defensor = get_player_by_position(defending_squad, 'Meio-campo')
                     if defensor: result = resolve_drible(player, defensor)
@@ -115,20 +115,20 @@ def simulate_event_based_match(home_squad_data, away_squad_data, formation):
                 result = resolve_chute(player, possession_holder)
 
             if result:
-                # Cria um registro completo do evento
                 event_log = {"minute": minute, "text": result['text']}
                 if result.get('outcome') == 'goal':
                     if result.get('team') == 'home': home_goals += 1
                     else: away_goals += 1
                     event_log['scorer_id'] = result.get('scorer_id')
+                    event_log['team'] = result.get('team')
                 
-                # Salva o estado de todos os jogadores no momento do evento
                 event_log['player_states'] = {p['id']: p['current_stamina'] for p in home_squad + away_squad}
                 events.append(event_log)
 
                 if result['outcome'] == 'failure' or result['outcome'] == 'goal':
                     possession_holder = "away" if possession_holder == "home" else "home"
 
+    events.append({"minute": 90, "text": f"FIM DE JOGO! Placar Final: {home_goals} x {away_goals}"})
     return {
         "home_goals": home_goals, 
         "away_goals": away_goals, 

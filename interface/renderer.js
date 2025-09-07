@@ -4,9 +4,9 @@ import { loadLeagueTable } from './views/competitionView.js';
 import { loadFixtures } from './views/calendarView.js';
 import { initMarketView } from './views/marketView.js';
 import { loadInitialGameState, initGameLoop } from './views/gameLoopView.js';
-import { showPlayerProfile } from './views/playerProfileView.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Dicionário de todas as telas e botões
     const views = {
         squad: document.getElementById('squad-view'),
         tactics: document.getElementById('tactics-view'),
@@ -32,63 +32,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStartGame = document.getElementById('btn-start-game');
     const btnGenerateWorld = document.getElementById('btn-generate-world');
 
-
+    // Função central para mostrar a tela correta
     function showView(viewId) {
-        for (const id in views) {
-            if (id !== 'start' && views[id]) {
-                views[id].style.display = 'none';
-            }
-        }
-        for (const id in buttons) {
-            if (buttons[id]) buttons[id].classList.remove('active');
-        }
-        if (views[viewId]) {
-            views[viewId].style.display = 'block';
-        }
-        if (buttons[viewId]) {
-            buttons[viewId].classList.add('active');
-        }
+        Object.values(views).forEach(view => view.style.display = 'none');
+        Object.values(buttons).forEach(btn => btn?.classList.remove('active'));
+        if (views[viewId]) views[viewId].style.display = 'block';
+        if (buttons[viewId]) buttons[viewId].classList.add('active');
     }
+
+    // Função que carrega todos os dados do jogo
     async function initialLoad() {
         const playerClubName = clubSelection.options[clubSelection.selectedIndex].text;
+        
+        // Objeto com todas as funções de atualização para ser passado para outras partes do código
         const refreshData = {
             squad: () => loadPlayersData(playerClubName, showView),
             finances: loadFinanceData,
             fixtures: loadFixtures,
             leagueTable: loadLeagueTable,
         };
-        await loadInitialGameState();
-        await refreshData.squad();
-        await refreshData.leagueTable();
-        await refreshData.fixtures();
-        await refreshData.finances();
+
+        // Carrega os dados em paralelo para ser mais rápido
+        await Promise.all([
+            loadInitialGameState(),
+            refreshData.squad(),
+            refreshData.leagueTable(),
+            refreshData.fixtures(),
+            refreshData.finances()
+        ]);
+        
+        // Inicializa as visualizações que precisam de lógica interativa
         initTacticsView();
         initMarketView(showView, refreshData);
-        initGameLoop(showView, refreshData);
+        initGameLoop(showView, refreshData); // O GameLoop agora gerencia a tela de partida
+
+        // A tela inicial SEMPRE será o elenco
         showView('squad');
     }
-   async function initializeNewGameScreen() {
+
+    // Lógica da tela de "Novo Jogo"
+    async function initializeNewGameScreen() {
         const clubs = await window.api.getAllClubs();
-        clubSelection.innerHTML = '';
-        clubs.forEach(club => { const option = document.createElement('option'); option.value = club.id; option.textContent = club.name; clubSelection.appendChild(option); });
+        clubSelection.innerHTML = clubs.map(club => `<option value="${club.id}">${club.name}</option>`).join('');
         
-        btnStartGame.onclick = async () => { // Alterado para .onclick para evitar múltiplos listeners
-            const selectedClubId = clubSelection.value;
-            await window.api.startNewGame(selectedClubId);
+        btnStartGame.onclick = async () => {
+            await window.api.startNewGame(clubSelection.value);
             views.start.style.display = 'none';
             mainGameInterface.style.display = 'flex';
             initialLoad(); 
         };
 
-        // Adicione este novo listener
-        btnGenerateWorld.onclick = async () => { // Alterado para .onclick
+        btnGenerateWorld.onclick = async () => {
             btnStartGame.disabled = true;
             btnGenerateWorld.disabled = true;
             btnGenerateWorld.textContent = 'Gerando...';
 
             const response = await window.api.generateNewWorld();
             if (response.success) {
-                await initializeNewGameScreen(); // Recarrega a lista de clubes
+                await initializeNewGameScreen();
             } else {
                 alert(`Erro ao gerar o mundo: ${response.message}`);
             }
@@ -98,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnGenerateWorld.textContent = 'Gerar Novo Mundo';
         };
     }
+
+    // Event Listeners dos botões de navegação
     buttons.squad.addEventListener('click', () => showView('squad'));
     buttons.tactics.addEventListener('click', () => showView('tactics'));
     buttons.finances.addEventListener('click', () => showView('finances'));
@@ -108,5 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     buttons.competition.addEventListener('click', () => showView('competition'));
     buttons.calendar.addEventListener('click', () => showView('calendar'));
+
+    // Inicia a aplicação
     initializeNewGameScreen();
 });

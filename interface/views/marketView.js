@@ -1,13 +1,13 @@
 import { showPlayerProfile } from './playerProfileView.js';
 
-let searchNameInput, searchPositionSelect, btnSearchPlayers, searchResultsTable, btnBackToMarket;
-let profileOfferAmount, btnMakeOffer, offerResponseMessage, btnAcceptDemands, btnRejectNegotiation;
+// As variáveis foram movidas para dentro da função initMarketView
 let currentProfilePlayerId = null;
 let currentNegotiation = null;
 const formatCurrency = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const formatNumberInput = (input) => { let value = input.value.replace(/\D/g, ''); if(value){ value = new Intl.NumberFormat('pt-BR').format(value); } input.value = value; };
 
 function displaySearchResults(players, showView) {
+    const searchResultsTable = document.getElementById('search-results-table');
     let html = `<thead><tr><th>Nome</th><th>Idade</th><th>Posição</th><th>Clube</th><th>Salário</th></tr></thead><tbody>`;
     if (players && players.length > 0) {
         players.forEach(player => {
@@ -20,24 +20,24 @@ function displaySearchResults(players, showView) {
     searchResultsTable.innerHTML = html;
     document.querySelectorAll('.player-row').forEach(row => {
         row.addEventListener('click', () => {
-            // ADICIONE ESTA LINHA:
             currentProfilePlayerId = row.dataset.playerId; 
-
             showPlayerProfile(row.dataset.playerId, showView);
         });
     });
 }
 
 export function initMarketView(showView, refreshData) {
-    searchNameInput = document.getElementById('search-name');
-    searchPositionSelect = document.getElementById('search-position');
-    btnSearchPlayers = document.getElementById('btn-search-players');
-    searchResultsTable = document.getElementById('search-results-table');
-    profileOfferAmount = document.getElementById('profile-offer-amount');
-    btnMakeOffer = document.getElementById('btn-make-offer');
-    offerResponseMessage = document.getElementById('offer-response-message');
-    btnAcceptDemands = document.getElementById('btn-accept-demands');
-    btnRejectNegotiation = document.getElementById('btn-reject-negotiation');
+    // --- CORREÇÃO APLICADA AQUI ---
+    // As buscas pelos elementos agora estão dentro da função de inicialização.
+    const searchNameInput = document.getElementById('search-name');
+    const searchPositionSelect = document.getElementById('search-position');
+    const btnSearchPlayers = document.getElementById('btn-search-players');
+    const searchResultsTable = document.getElementById('search-results-table');
+    const profileOfferAmount = document.getElementById('profile-offer-amount');
+    const btnMakeOffer = document.getElementById('btn-make-offer');
+    const offerResponseMessage = document.getElementById('offer-response-message');
+    const btnAcceptDemands = document.getElementById('btn-accept-demands');
+    const btnRejectNegotiation = document.getElementById('btn-reject-negotiation');
 
     btnSearchPlayers.addEventListener('click', async () => {
         const filters = { name: searchNameInput.value, position: searchPositionSelect.value };
@@ -45,7 +45,6 @@ export function initMarketView(showView, refreshData) {
         const players = await window.api.searchPlayers(filters);
         displaySearchResults(players, showView);
     });
-
 
     profileOfferAmount.addEventListener('input', () => { formatNumberInput(profileOfferAmount); });
 
