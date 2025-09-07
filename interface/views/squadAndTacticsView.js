@@ -1,5 +1,7 @@
 import { showPlayerProfile } from './playerProfileView.js';
 
+export let currentFormation = '442';
+
 const playerList = document.getElementById('player-list');
 const pitch = document.getElementById('pitch');
 const formationSelect = document.getElementById('formation-select');
@@ -56,6 +58,7 @@ export async function loadPlayersData(playerClubName, showView) {
 
 export function initTacticsView() {
     formationSelect.addEventListener('change', () => {
+        currentFormation = formationSelect.value; // <--- ADICIONE ESTA LINHA
         drawPlayersOnPitch(currentSquad, formationSelect.value)
     });
 }

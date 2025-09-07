@@ -1,8 +1,6 @@
-// Variáveis de estado do jogo
-let gameState = {
-    currentDate: null,
-    nextMatch: null,
-};
+import { currentFormation } from './squadAndTacticsView.js';
+
+let gameState = { currentDate: null, nextMatch: null };
 
 async function updateDateDisplay() {
     const currentDateDisplay = document.getElementById('current-date-display');
@@ -20,7 +18,6 @@ export async function loadInitialGameState() {
 }
 
 export function initGameLoop(showView, refreshData) {
-    // Seleciona todos os elementos que vamos usar
     const btnContinue = document.getElementById('btn-continue');
     const matchupContainer = document.getElementById('matchup-container');
     const btnPlayMatchdayGame = document.getElementById('btn-play-matchday-game');
@@ -28,12 +25,14 @@ export function initGameLoop(showView, refreshData) {
     const commentaryBox = document.getElementById('matchday-commentary');
     const scoreboard = document.getElementById('matchday-scoreboard');
     const speedControls = document.getElementById('matchday-speed-controls');
+    const matchTimer = document.getElementById('match-timer');
+    const squadsContainer = document.getElementById('match-squads-container');
+    const homeSquadDisplay = document.getElementById('home-squad-display');
+    const awaySquadDisplay = document.getElementById('away-squad-display');
 
-    // Lógica para avançar o tempo (sem alterações)
     btnContinue.addEventListener('click', async () => {
         btnContinue.disabled = true;
         btnContinue.textContent = 'Avançando...';
-        
         const newState = await window.api.advanceTime();
         gameState.currentDate = newState.newDate;
         gameState.nextMatch = newState.nextMatch;
@@ -42,8 +41,8 @@ export function initGameLoop(showView, refreshData) {
 
         if (gameState.nextMatch) {
             matchupContainer.innerHTML = `${newState.nextMatch.home_name} <span style="color: #777;">vs</span> ${newState.nextMatch.away_name}`;
-            btnPlayMatchdayGame.style.display = 'block'; // Mostra o botão de jogar
-            btnFinishMatchday.style.display = 'none'; // Garante que o de finalizar está escondido
+            btnPlayMatchdayGame.style.display = 'block';
+            btnFinishMatchday.style.display = 'none';
             showView('matchday');
         } else {
             btnContinue.disabled = false;
@@ -51,74 +50,94 @@ export function initGameLoop(showView, refreshData) {
         }
     });
 
-    // --- NOVA LÓGICA DA PARTIDA ---
+    function renderSquad(displayElement, teamName, lineup) {
+        let html = `<h3>${teamName}</h3>`;
+        lineup.forEach(player => {
+            html += `
+                <div class="player-line" id="player-${player.id}">
+                    <span>${player.name.split(' ').slice(0, 2).join(' ')} (${player.position.slice(0,3)})</span>
+                    <div class="stamina-bar-container">
+                        <div class="stamina-bar" style="width: 100%;"></div>
+                    </div>
+                    <span class="player-goals"></span>
+                </div>
+            `;
+        });
+        displayElement.innerHTML = html;
+    }
+
     btnPlayMatchdayGame.addEventListener('click', async () => {
-        btnPlayMatchdayGame.style.display = 'none'; // Esconde o botão de jogar
-        speedControls.style.display = 'block'; // Mostra os controles de velocidade
-        commentaryBox.style.display = 'block';
-        scoreboard.style.display = 'block';
+        btnPlayMatchdayGame.style.display = 'none';
+        [speedControls, commentaryBox, scoreboard, matchTimer, squadsContainer].forEach(el => el.style.display = 'block');
         
-        // Zera o placar e os comentários
-        let homeGoals = 0;
-        let awayGoals = 0;
-        scoreboard.textContent = `${gameState.nextMatch.home_name} ${homeGoals} x ${awayGoals} ${gameState.nextMatch.away_name}`;
-        commentaryBox.innerHTML = 'O juiz apita e a bola rola!';
-
+        let homeGoals = 0, awayGoals = 0;
         const { id, home_club_id, away_club_id, home_name, away_name } = gameState.nextMatch;
-        
+
+        scoreboard.textContent = `${home_name} ${homeGoals} x ${awayGoals} ${away_name}`;
+        commentaryBox.innerHTML = '';
+        matchTimer.textContent = "00:00";
+        homeSquadDisplay.innerHTML = `<h3>${home_name}</h3>`;
+        awaySquadDisplay.innerHTML = `<h3>${away_name}</h3>`;
+
         try {
-            const result = await window.api.runMatch(id, home_club_id, away_club_id);
+            const result = await window.api.runMatch(id, home_club_id, away_club_id, currentFormation);
             
-            function displayEvents(index) {
-                // Pega a velocidade selecionada a cada lance
-                const currentSpeed = document.querySelector('input[name="speed"]:checked').value;
+            renderSquad(homeSquadDisplay, home_name, result.home_lineup);
+            renderSquad(awaySquadDisplay, away_name, result.away_lineup);
 
-                if (index < result.events.length) {
-                    const event = result.events[index];
-                    const p = document.createElement('p');
-                    p.textContent = event;
-                    
-                    if (event.includes('GOL!')) {
-                        // Verifica qual time marcou para atualizar o placar
-                        const lastEvent = result.events[index-1]; // O evento de gol vem depois do chute
-                        if (lastEvent) {
-                           // Esta é uma simplificação, idealmente o python diria qual time marcou
-                           // Vamos assumir que a posse era do time certo (o python já faz isso)
-                        }
-                        // O placar final já vem do python, vamos usá-lo para atualizar
-                        if (event.includes(home_name)) homeGoals++;
-                        if (event.includes(away_name)) awayGoals++;
-                        
-                        p.style.color = '#98c379';
-                        p.style.fontWeight = 'bold';
-                    }
-
-                    // A cada gol, o placar é atualizado no log. Vamos capturar isso.
-                    if (event.startsWith('PLACAR:')) {
-                        const scoreLine = event.replace('PLACAR: ', ''); // "Casa 2 x 1 Visitante"
-                        const parts = scoreLine.split(' ');
-                        homeGoals = parseInt(parts[1]);
-                        awayGoals = parseInt(parts[4]);
-                        scoreboard.textContent = `${home_name} ${homeGoals} x ${awayGoals} ${away_name}`;
-                        p.style.display = 'none'; // Não mostra a linha "PLACAR:"
-                    }
-
-                    commentaryBox.appendChild(p);
-                    commentaryBox.scrollTop = commentaryBox.scrollHeight;
-                    
-                    setTimeout(() => displayEvents(index + 1), currentSpeed);
-                } else {
-                    // Fim da narração
-                    speedControls.style.display = 'none'; // Esconde os controles
-                    btnFinishMatchday.style.display = 'block'; // Mostra o botão de finalizar
-                    
-                    gameState.nextMatch = null;
+            // --- NOVA LÓGICA DE TEMPO E NARRAÇÃO ---
+            function narrateEvent(eventIndex) {
+                // Se não houver mais eventos, encerra a partida
+                if (eventIndex >= result.events.length) {
+                    matchTimer.textContent = "90:00";
+                    speedControls.style.display = 'none';
+                    btnFinishMatchday.style.display = 'block';
                     refreshData.fixtures();
                     refreshData.leagueTable();
+                    return;
                 }
+
+                const event = result.events[eventIndex];
+                const currentSpeed = document.querySelector('input[name="speed"]:checked').value;
+
+                // Atualiza o cronômetro para o minuto do evento atual
+                matchTimer.textContent = `${String(event.minute).padStart(2, '0')}:00`;
+
+                const p = document.createElement('p');
+                p.textContent = `(${event.minute}') ${event.text}`;
+                
+                if (event.scorer_id) {
+                    p.style.color = '#98c379';
+                    p.style.fontWeight = 'bold';
+
+                    if (event.team === 'home') homeGoals++;
+                    else awayGoals++;
+                    scoreboard.textContent = `${home_name} ${homeGoals} x ${awayGoals} ${away_name}`;
+
+                    const scorerLine = document.querySelector(`#player-${event.scorer_id} .player-goals`);
+                    if(scorerLine) scorerLine.innerHTML += '⚽';
+                }
+                
+                commentaryBox.appendChild(p);
+                commentaryBox.scrollTop = commentaryBox.scrollHeight;
+
+                if (event.player_states) {
+                    for (const [playerId, stamina] of Object.entries(event.player_states)) {
+                        const staminaBar = document.querySelector(`#player-${playerId} .stamina-bar`);
+                        if (staminaBar) {
+                            staminaBar.style.width = `${Math.max(0, stamina)}%`;
+                            if (stamina < 30) staminaBar.style.backgroundColor = '#e06c75';
+                            else if (stamina < 60) staminaBar.style.backgroundColor = '#e5c07b';
+                            else staminaBar.style.backgroundColor = '#98c379';
+                        }
+                    }
+                }
+                
+                // Chama a narração do próximo evento após o tempo definido pela velocidade
+                setTimeout(() => narrateEvent(eventIndex + 1), currentSpeed);
             }
-            // Começa a narração após um pequeno atraso inicial
-            setTimeout(() => displayEvents(0), 500);
+
+            narrateEvent(0); // Inicia a narração a partir do primeiro evento
 
         } catch(error) {
             commentaryBox.innerHTML = `<p style="color: #e06c75;">Erro: ${error.message}</p>`;
@@ -126,15 +145,10 @@ export function initGameLoop(showView, refreshData) {
         }
     });
 
-    // Lógica para o novo botão de finalizar
     btnFinishMatchday.addEventListener('click', () => {
         showView('calendar');
         btnContinue.disabled = false;
         btnContinue.textContent = 'Continuar';
-        
-        // Limpa a tela da partida para a próxima vez
-        commentaryBox.style.display = 'none';
-        scoreboard.style.display = 'none';
-        btnFinishMatchday.style.display = 'none';
+        [commentaryBox, scoreboard, btnFinishMatchday, matchTimer, squadsContainer, speedControls].forEach(el => el.style.display = 'none');
     });
 }

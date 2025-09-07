@@ -22,7 +22,8 @@ async function simulateAndSaveMatch(db, fixture) {
     // 3. Envia os dados dos elencos para o Python através da entrada padrão (stdin)
     const matchData = {
         home_squad: homeSquad,
-        away_squad: awaySquad
+        away_squad: awaySquad,
+        formation: fixture.formation
     };
     pythonProcess.stdin.write(JSON.stringify(matchData));
     pythonProcess.stdin.end();
@@ -101,7 +102,7 @@ function registerGameLoopHandlers() {
             await dbRun("UPDATE game_state SET current_date = ? WHERE id = 1", [nextDateStr]);
             
             if (currentDate.getDate() === 1) {
-                // await runMonthlyPlayerDevelopment(db, currentDate); // Desativado temporariamente
+                await runMonthlyPlayerDevelopment(db, currentDate);
             }
 
             const sql = `
@@ -125,26 +126,42 @@ function registerGameLoopHandlers() {
         }
     });
 
-    ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId }) => {
+    ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId, formation }) => {
         const db = new sqlite3.Database(dbPath);
         
         const dbGet = util.promisify(db.get.bind(db));
         const dbAll = util.promisify(db.all.bind(db));
 
         try {
-            const playerMatchResult = await simulateAndSaveMatch(db, { id: fixtureId, home_club_id: homeId, away_club_id: awayId });
+            // 1. Simula a partida do jogador com a formação escolhida
+            const playerMatchResult = await simulateAndSaveMatch(db, { 
+                id: fixtureId, 
+                home_club_id: homeId, 
+                away_club_id: awayId, 
+                formation: formation // A formação vem da interface
+            });
+
+            // 2. Pega os outros jogos da rodada
             const fixtureData = await dbGet("SELECT round FROM fixtures WHERE id = ?", [fixtureId]);
             const currentRound = fixtureData.round;
             const otherFixtures = await dbAll("SELECT id, home_club_id, away_club_id FROM fixtures WHERE round = ? AND is_played = 0", [currentRound]);
             
+            // 3. Simula os outros jogos, garantindo que uma formação padrão seja enviada
             for (const fixture of otherFixtures) {
-                await simulateAndSaveMatch(db, fixture);
+                // CORREÇÃO APLICADA AQUI:
+                // Passamos o objeto fixture e adicionamos a formação padrão
+                await simulateAndSaveMatch(db, { 
+                    id: fixture.id,
+                    home_club_id: fixture.home_club_id,
+                    away_club_id: fixture.away_club_id,
+                    formation: '442' // Formação padrão para a IA
+                });
             }
 
             return playerMatchResult;
         } catch (e) {
-            console.error('Erro ao executar a rodada:', e.message); // Imprime a mensagem de erro de forma mais limpa
-            throw e; // Lança o erro para a interface do usuário
+            console.error('Erro ao executar a rodada:', e.message);
+            throw e;
         } finally {
             db.close();
         }

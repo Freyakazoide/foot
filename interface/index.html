@@ -34,6 +34,20 @@
         .attribute-box h3 { margin-top: 0; color: #98c379; }
         .attribute-box p { display: flex; justify-content: space-between; margin: 5px 0; }
         .negotiation-buttons { display: flex; justify-content: space-around; margin-top: 20px; }
+        .match-squads-container { display: flex; justify-content: space-between; gap: 20px; max-width: 90%; margin: 20px auto; }
+       .squad-display {
+            flex: 1;
+            background-color: #2e2e2e;
+            border: 1px solid #444a57;
+            border-radius: 4px;
+            padding: 10px;
+            width: 49%;
+        }
+        .squad-display h3 { margin-top: 0; text-align: center; color: #e5c07b; }
+        .player-line { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 14px; border-bottom: 1px solid #3a3a3a; }
+        .stamina-bar-container { width: 50px; height: 10px; background-color: #555; border: 1px solid #888; border-radius: 2px;}
+        .stamina-bar { height: 100%; width: 100%; background-color: #98c379; border-radius: 1px;}
+        .goal-icon { margin-left: 5px; color: #e5c07b; }
     </style>
 </head>
 <body>
@@ -200,28 +214,30 @@
             <table id="fixtures-table"></table>
         </main>
         
-        <main id="matchday-view" style="text-align: center;">
+       <main id="matchday-view" style="text-align: center;">
             <h2>Dia de Jogo!</h2>
-            <div id="matchup-container" style="font-size: 2em; margin: 20px 0;"></div>
+            <div id="matchup-container" style="font-size: 2em; margin: 10px 0;"></div>
             
-            <div id="matchday-scoreboard" style="font-size: 2.5em; font-weight: bold; margin-bottom: 20px; display: none;">0 x 0</div>
+            <div id="match-timer" style="font-size: 1.5em; color: #e5c07b; font-weight: bold; margin-bottom: 10px; display: none;">00:00</div>
 
-            <div id="matchday-speed-controls" style="margin-bottom: 20px; display: none;">
-                <span>Velocidade da Narração:</span>
-                <input type="radio" id="speed-slow" name="speed" value="500">
-                <label for="speed-slow">Lenta</label>
-                <input type="radio" id="speed-normal" name="speed" value="250" checked>
-                <label for="speed-normal">Normal</label>
-                <input type="radio" id="speed-fast" name="speed" value="100">
-                <label for="speed-fast">Rápida</label>
+            <div id="matchday-scoreboard" style="font-size: 2.5em; font-weight: bold; margin-bottom: 10px; display: none;">0 x 0</div>
+            <div id="matchday-speed-controls" style="margin-bottom: 10px; display: none;">
+                <span>Velocidade:</span>
+                <input type="radio" id="speed-very-slow" name="speed" value="800"><label for="speed-very-slow">Muito Lenta</label>
+                <input type="radio" id="speed-slow" name="speed" value="500"><label for="speed-slow">Lenta</label>
+                <input type="radio" id="speed-normal" name="speed" value="250" checked><label for="speed-normal">Normal</label>
+                <input type="radio" id="speed-fast" name="speed" value="100"><label for="speed-fast">Rápida</label>
             </div>
 
-            <div id="matchday-commentary" style="height: 300px; overflow-y: scroll; border: 1px solid #444a57; padding: 10px; text-align: left; background-color: #2e2e2e; margin: 20px auto; max-width: 80%; font-family: monospace; display: none;">
+            <div id="matchday-commentary" style="height: 200px; overflow-y: scroll; border: 1px solid #444a57; padding: 10px; text-align: left; background-color: #2e2e2e; margin: 10px auto; max-width: 80%; font-family: monospace; display: none;"></div>
+
+            <div class="match-squads-container" id="match-squads-container" style="display: none;">
+                <div class="squad-display" id="home-squad-display"><h3>Casa</h3></div>
+                <div class="squad-display" id="away-squad-display"><h3>Visitante</h3></div>
             </div>
 
             <button id="btn-play-matchday-game" style="padding: 15px 30px; font-size: 1.2em;">Jogar Partida</button>
-            
-            <button id="btn-finish-matchday" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: #61afef;">Finalizar Partida</button>
+            <button id="btn-finish-matchday" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: #61afef; margin-top: 20px;">Finalizar Partida</button>
         </main>
 
     <script src="./renderer.js" type="module"></script>
