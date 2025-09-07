@@ -27,12 +27,15 @@ def create_player(cursor, club_id, position):
     """, (fake.name(), random.randint(17, 35), random.choice(nationalities), position, club_id, random.randint(500, 25000) * (random.randint(17,35) / 10), (date(2025, 1, 20) + timedelta(days=365 * random.randint(1, 5))).strftime('%Y-%m-%d'), random.randint(8, 20), *attrs.values()))
 
 def main():
+    # --- INÍCIO DA ALTERAÇÃO ---
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path", required=True, help="Caminho para o ficheiro da base de dados")
     args = parser.parse_args()
-    db_path = args.db_path
+    db_path = args.db_path # Usa o caminho fornecido pelo Electron
 
     conn = sqlite3.connect(db_path)
+    # --- FIM DA ALTERAÇÃO ---
+    
     cursor = conn.cursor()
 
     print(f"--- Usando Base de Dados em: {db_path} ---", file=sys.stderr)

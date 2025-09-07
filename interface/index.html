@@ -202,11 +202,27 @@
         
         <main id="matchday-view" style="text-align: center;">
             <h2>Dia de Jogo!</h2>
-            <div id="matchup-container" style="font-size: 2em; margin: 40px 0;"></div>
+            <div id="matchup-container" style="font-size: 2em; margin: 20px 0;"></div>
+            
+            <div id="matchday-scoreboard" style="font-size: 2.5em; font-weight: bold; margin-bottom: 20px; display: none;">0 x 0</div>
+
+            <div id="matchday-speed-controls" style="margin-bottom: 20px; display: none;">
+                <span>Velocidade da Narração:</span>
+                <input type="radio" id="speed-slow" name="speed" value="500">
+                <label for="speed-slow">Lenta</label>
+                <input type="radio" id="speed-normal" name="speed" value="250" checked>
+                <label for="speed-normal">Normal</label>
+                <input type="radio" id="speed-fast" name="speed" value="100">
+                <label for="speed-fast">Rápida</label>
+            </div>
+
+            <div id="matchday-commentary" style="height: 300px; overflow-y: scroll; border: 1px solid #444a57; padding: 10px; text-align: left; background-color: #2e2e2e; margin: 20px auto; max-width: 80%; font-family: monospace; display: none;">
+            </div>
+
             <button id="btn-play-matchday-game" style="padding: 15px 30px; font-size: 1.2em;">Jogar Partida</button>
-            <div id="matchday-result-container" style="margin-top: 40px;"></div>
+            
+            <button id="btn-finish-matchday" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: #61afef;">Finalizar Partida</button>
         </main>
-    </div>
 
     <script src="./renderer.js" type="module"></script>
 </body>

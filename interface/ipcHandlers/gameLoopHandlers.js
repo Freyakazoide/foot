@@ -8,97 +8,71 @@ const dbPath = path.join(__dirname, '../', 'foot.db');
 
 async function simulateAndSaveMatch(db, fixture) {
     const dbRun = util.promisify(db.run.bind(db));
+    const dbAll = util.promisify(db.all.bind(db)); // Adicione esta linha
 
-    // 1. Executa o script Python para obter o resultado do jogo
-const dbPath = path.join(__dirname, '../../foot.db'); // Pega o caminho do DB
-const scriptPath = path.join(__dirname, '../../run_match.py');
-const pythonProcess = spawn('python', [
-    '-X', 'utf8', 
-    scriptPath, 
-    '--home', fixture.home_club_id, 
-    '--away', fixture.away_club_id, 
-    '--db_path', dbPath
-]);
+    // --- INÍCIO DA GRANDE MUDANÇA ---
+    // 1. Busca os jogadores de ambos os times AQUI no JavaScript
+    const homeSquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.home_club_id]);
+    const awaySquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.away_club_id]);
+
+    // 2. Executa o script Python, mas agora envia os dados dos jogadores diretamente
+    const scriptPath = path.join(__dirname, '../', 'run_match.py');
+    const pythonProcess = spawn('python', ['-X', 'utf8', scriptPath]);
+
+    // 3. Envia os dados dos elencos para o Python através da entrada padrão (stdin)
+    const matchData = {
+        home_squad: homeSquad,
+        away_squad: awaySquad
+    };
+    pythonProcess.stdin.write(JSON.stringify(matchData));
+    pythonProcess.stdin.end();
+    // --- FIM DA GRANDE MUDANÇA ---
     
     const resultJson = await new Promise((resolve, reject) => {
         let stdout = '';
         let stderr = '';
         pythonProcess.stdout.on('data', (data) => { stdout += data.toString(); });
-        pythonProcess.stderr.on('data', (data) => { stderr += data.toString(); });
+        pythonProcess.stderr.on('data', (data) => {
+            console.error(`[run_match.py DEBUG]: ${data.toString()}`);
+            stderr += data.toString();
+        });
         pythonProcess.on('close', (code) => {
             if (code !== 0) return reject(new Error(stderr));
+            if (stdout.trim() === '') return reject(new Error('O script Python não retornou nenhum resultado.'));
             resolve(stdout);
         });
     });
-    const result = JSON.parse(resultJson);
 
-    // 2. Atualiza a tabela de jogos (fixtures) com o resultado
-    await dbRun(`UPDATE fixtures SET home_goals = ?, away_goals = ?, is_played = 1 WHERE id = ?`, [result.home_goals, result.away_goals, fixture.id]);
+    try {
+        const result = JSON.parse(resultJson);
 
-    // 3. Prepara os dados para a atualização da tabela de classificação (league_tables)
-    let homeUpdate, awayUpdate;
+        // 2. Atualiza a tabela de jogos (fixtures) com o resultado
+        await dbRun(`UPDATE fixtures SET home_goals = ?, away_goals = ?, is_played = 1 WHERE id = ?`, [result.home_goals, result.away_goals, fixture.id]);
 
-    if (result.home_goals > result.away_goals) { // Vitória do time da casa
-        homeUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
-        awayUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
-    } else if (result.away_goals > result.home_goals) { // Vitória do time visitante
-        homeUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
-        awayUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
-    } else { // Empate
-        homeUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}`;
-        awayUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}`;
-    }
+        // 3. Prepara os dados para a atualização da tabela de classificação (league_tables)
+        let homeUpdate, awayUpdate;
 
-    // 4. Executa as atualizações na tabela de classificação
-    await dbRun(`UPDATE league_tables SET ${homeUpdate} WHERE club_id = ?`, [fixture.home_club_id]);
-    await dbRun(`UPDATE league_tables SET ${awayUpdate} WHERE club_id = ?`, [fixture.away_club_id]);
-
-    return result;
-}
-
-async function runMonthlyPlayerDevelopment(db, currentDate) {
-    const dbAll = util.promisify(db.all.bind(db));
-    const dbRun = util.promisify(db.run.bind(db));
-
-    if (currentDate.getMonth() === 0) {
-        await dbRun("UPDATE players SET age = age + 1");
-    }
-
-    const players = await dbAll("SELECT * FROM players");
-    const updates = [];
-    const physicalAttrs = ['pace', 'stamina', 'strength'];
-    const allAttrs = [...physicalAttrs, 'finishing', 'passing', 'tackling', 'vision', 'positioning', 'determination'];
-
-    for (const player of players) {
-        let changed = false;
-        if (player.age < 29) {
-            const improvementChance = player.potential / 150;
-            if (Math.random() < improvementChance) {
-                const attrToImprove = allAttrs[Math.floor(Math.random() * allAttrs.length)];
-                if (player[attrToImprove] < 20) {
-                    player[attrToImprove]++;
-                    changed = true;
-                }
-            }
-        } else if (player.age > 30) {
-            const declineChance = (player.age - 30) / 40;
-            if (Math.random() < declineChance) {
-                const attrToDecline = physicalAttrs[Math.floor(Math.random() * physicalAttrs.length)];
-                if (player[attrToDecline] > 5) {
-                    player[attrToDecline]--;
-                    changed = true;
-                }
-            }
+        if (result.home_goals > result.away_goals) { // Vitória do time da casa
+            homeUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+            awayUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+        } else if (result.away_goals > result.home_goals) { // Vitória do time visitante
+            homeUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+            awayUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+        } else { // Empate
+            homeUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}`;
+            awayUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}`;
         }
-        if (changed) {
-            updates.push(player);
-        }
-    }
-    
-    if (updates.length > 0) {
-        const stmt = db.prepare(`UPDATE players SET finishing = ?, passing = ?, tackling = ?, vision = ?, positioning = ?, determination = ?, pace = ?, stamina = ?, strength = ? WHERE id = ?`);
-        updates.forEach(p => stmt.run(p.finishing, p.passing, p.tackling, p.vision, p.positioning, p.determination, p.pace, p.stamina, p.strength, p.id));
-        await new Promise((resolve, reject) => stmt.finalize(err => err ? reject(err) : resolve()));
+
+        // 4. Executa as atualizações na tabela de classificação
+        await dbRun(`UPDATE league_tables SET ${homeUpdate} WHERE club_id = ?`, [fixture.home_club_id]);
+        await dbRun(`UPDATE league_tables SET ${awayUpdate} WHERE club_id = ?`, [fixture.away_club_id]);
+
+        return result;
+
+    } catch (e) {
+        // Este erro será acionado se o resultJson não for um JSON válido
+        console.error("Erro ao analisar o JSON do script Python. Saída recebida:", resultJson);
+        throw e; // Lança o erro para que a chamada principal saiba que falhou
     }
 }
 
@@ -127,7 +101,7 @@ function registerGameLoopHandlers() {
             await dbRun("UPDATE game_state SET current_date = ? WHERE id = 1", [nextDateStr]);
             
             if (currentDate.getDate() === 1) {
-                await runMonthlyPlayerDevelopment(db, currentDate);
+                // await runMonthlyPlayerDevelopment(db, currentDate); // Desativado temporariamente
             }
 
             const sql = `
@@ -169,8 +143,8 @@ function registerGameLoopHandlers() {
 
             return playerMatchResult;
         } catch (e) {
-            console.error('Erro ao executar a rodada:', e);
-            throw e;
+            console.error('Erro ao executar a rodada:', e.message); // Imprime a mensagem de erro de forma mais limpa
+            throw e; // Lança o erro para a interface do usuário
         } finally {
             db.close();
         }
