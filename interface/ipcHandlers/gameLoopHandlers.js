@@ -1,180 +1,82 @@
 const { ipcMain } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
-const { spawn } = require('child_process');
 const util = require('util');
+const { spawn } = require('child_process');
 
 const dbPath = path.join(__dirname, '../', 'foot.db');
 
-async function simulateAndSaveMatch(db, fixture) {
-    const dbRun = util.promisify(db.run.bind(db));
-    const dbAll = util.promisify(db.all.bind(db));
-    const dbGet = util.promisify(db.get.bind(db)); // Adicionado para buscar o estado do jogo
-
-    // --- INÍCIO DA CORREÇÃO ---
-    // 1. Busca os jogadores e o ID do clube do jogador
-    const homeSquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.home_club_id]);
-    const awaySquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.away_club_id]);
-    const gameState = await dbGet('SELECT player_club_id FROM game_state WHERE id = 1');
-    const playerClubId = gameState.player_club_id;
-
-    // 2. Determina se o jogador é o time da casa ou visitante
-    let playerTeamSide = null;
-    if (fixture.lineup) { // Apenas define o lado do jogador se uma escalação foi enviada
-        if (playerClubId === fixture.home_club_id) {
-            playerTeamSide = 'home';
-        } else if (playerClubId === fixture.away_club_id) {
-            playerTeamSide = 'away';
-        }
-    }
-    // --- FIM DA CORREÇÃO ---
-
-    const scriptPath = path.join(__dirname, '../', 'run_match.py');
-    const pythonProcess = spawn('python', ['-X', 'utf8', scriptPath]);
-
-    const matchData = {
-        home_squad: homeSquad,
-        away_squad: awaySquad,
-        formation: fixture.formation,
-        lineup: fixture.lineup || null,
-        player_team: playerTeamSide // Envia a informação para o Python
-    };
-    pythonProcess.stdin.write(JSON.stringify(matchData));
-    pythonProcess.stdin.end();
-    
-    const resultJson = await new Promise((resolve, reject) => {
-        let stdout = '';
-        let stderr = '';
-        pythonProcess.stdout.on('data', (data) => { stdout += data.toString(); });
-        pythonProcess.stderr.on('data', (data) => {
-            console.error(`[run_match.py DEBUG]: ${data.toString()}`);
-            stderr += data.toString();
-        });
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) return reject(new Error(stderr));
-            if (stdout.trim() === '') return reject(new Error('O script Python não retornou nenhum resultado.'));
-            resolve(stdout);
-        });
-    });
-
-    try {
-        const result = JSON.parse(resultJson);
-
-        // 2. Atualiza a tabela de jogos (fixtures) com o resultado
-        await dbRun(`UPDATE fixtures SET home_goals = ?, away_goals = ?, is_played = 1 WHERE id = ?`, [result.home_goals, result.away_goals, fixture.id]);
-
-        // 3. Prepara os dados para a atualização da tabela de classificação (league_tables)
-        let homeUpdate, awayUpdate;
-
-        if (result.home_goals > result.away_goals) { // Vitória do time da casa
-            homeUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
-            awayUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
-        } else if (result.away_goals > result.home_goals) { // Vitória do time visitante
-            homeUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
-            awayUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
-        } else { // Empate
-            homeUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}`;
-            awayUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}`;
-        }
-
-        // 4. Executa as atualizações na tabela de classificação
-        await dbRun(`UPDATE league_tables SET ${homeUpdate} WHERE club_id = ?`, [fixture.home_club_id]);
-        await dbRun(`UPDATE league_tables SET ${awayUpdate} WHERE club_id = ?`, [fixture.away_club_id]);
-
-        return result;
-
-    } catch (e) {
-        // Este erro será acionado se o resultJson não for um JSON válido
-        console.error("Erro ao analisar o JSON do script Python. Saída recebida:", resultJson);
-        throw e; // Lança o erro para que a chamada principal saiba que falhou
-    }
-}
-
 function registerGameLoopHandlers() {
-    ipcMain.handle('advance-time', async () => {
-        const db = new sqlite3.Database(dbPath);
-        const dbGet = util.promisify(db.get.bind(db));
-        const dbRun = util.promisify(db.run.bind(db));
 
-        try {
-            const state = await dbGet("SELECT current_date, player_club_id FROM game_state WHERE id = 1");
-            if (!state) throw new Error("Estado do jogo não encontrado.");
+    ipcMain.handle('advance-time', () => {
+        return new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE, (err) => {
+                if (err) {
+                    console.error("Erro CRÍTICO ao abrir o banco de dados:", err.message);
+                    return reject(err);
+                }
+            });
 
-            const currentDate = new Date(state.current_date);
-            currentDate.setMinutes(currentDate.getMinutes() + currentDate.getTimezoneOffset());
-            
-            currentDate.setDate(currentDate.getDate() + 1);
-            const nextDateStr = currentDate.toISOString().split('T')[0];
+            db.serialize(() => {
+                db.get("SELECT current_date, player_club_id FROM game_state WHERE id = 1", [], (err, state) => {
+                    if (err) {
+                        db.close();
+                        return reject(err);
+                    }
+                    if (!state) {
+                        db.close();
+                        return reject(new Error("Estado do jogo não encontrado."));
+                    }
 
-            if (currentDate.getDay() === 1) { 
-                const wageRow = await dbGet("SELECT SUM(wage) AS total_wages FROM players WHERE club_id = ?", [state.player_club_id]);
-                const weeklyWages = (wageRow.total_wages || 0) / 4;
-                await dbRun("UPDATE clubs SET balance = balance - ? WHERE id = ?", [weeklyWages, state.player_club_id]);
-            }
+                    const utcDate = new Date(`${state.current_date}T00:00:00Z`);
+                    utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+                    const nextDateStr = utcDate.toISOString().split('T')[0];
 
-            await dbRun("UPDATE game_state SET current_date = ? WHERE id = 1", [nextDateStr]);
-            
-            if (currentDate.getDate() === 1) {
-                await runMonthlyPlayerDevelopment(db, currentDate);
-            }
+                    db.run("UPDATE game_state SET current_date = ? WHERE id = 1", [nextDateStr], function(err) {
+                        if (err) {
+                            db.close();
+                            return reject(err);
+                        }
+                        if (this.changes === 0) {
+                            db.close();
+                            return reject(new Error("Falha Crítica: O UPDATE no banco de dados não alterou nenhuma linha."));
+                        }
 
-            const sql = `
-                SELECT f.id, f.home_club_id, f.away_club_id, c1.name as home_name, c2.name as away_name
-                FROM fixtures f
-                JOIN clubs c1 ON f.home_club_id = c1.id
-                JOIN clubs c2 ON f.away_club_id = c2.id
-                WHERE f.round = (SELECT MIN(round) FROM fixtures WHERE is_played = 0) 
-                    AND (f.home_club_id = ? OR f.away_club_id = ?) 
-                    AND f.is_played = 0 
-                LIMIT 1`;
-            const match = await dbGet(sql, [state.player_club_id, state.player_club_id]);
-
-            return { newDate: nextDateStr, nextMatch: match || null };
-
-        } catch (error) {
-            console.error('Erro ao avançar o tempo:', error);
-            throw error;
-        } finally {
-            db.close();
-        }
+                        const findMatchSql = `
+                            SELECT f.id, f.home_club_id, f.away_club_id, c1.name as home_name, c2.name as away_name
+                            FROM fixtures f
+                            JOIN clubs c1 ON f.home_club_id = c1.id
+                            JOIN clubs c2 ON f.away_club_id = c2.id
+                            WHERE f.date = ? AND (f.home_club_id = ? OR f.away_club_id = ?) AND f.is_played = 0
+                            LIMIT 1`;
+                        
+                        db.get(findMatchSql, [nextDateStr, state.player_club_id, state.player_club_id], (err, match) => {
+                            if (err) {
+                                db.close();
+                                return reject(err);
+                            }
+                            
+                            db.close((err) => {
+                                if (err) return reject(err);
+                                resolve({ newDate: nextDateStr, nextMatch: match || null });
+                            });
+                        });
+                    });
+                });
+            });
+        });
     });
 
-        ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId, formation, lineup }) => {
-
-                console.log("[gameLoopHandlers] Escalação recebida:", lineup);
-
+    ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId, formation, lineup }) => {
         const db = new sqlite3.Database(dbPath);
-        
-        const dbGet = util.promisify(db.get.bind(db));
-        const dbAll = util.promisify(db.all.bind(db));
-
-    try {
-        // 1. Simula a partida do jogador com a formação E ESCALAÇÃO escolhidas
-        const playerMatchResult = await simulateAndSaveMatch(db, { 
-            id: fixtureId, 
-            home_club_id: homeId, 
-            away_club_id: awayId, 
-            formation: formation, // A formação vem da interface
-            lineup: lineup // A escalação agora vem da interface
-        });
-
-            // 2. Pega os outros jogos da rodada
-            const fixtureData = await dbGet("SELECT round FROM fixtures WHERE id = ?", [fixtureId]);
+        try {
+            const playerMatchResult = await simulateAndSaveMatch(db, { id: fixtureId, home_club_id: homeId, away_club_id: awayId, formation: formation, lineup: lineup });
+            const fixtureData = await util.promisify(db.get.bind(db))("SELECT round FROM fixtures WHERE id = ?", [fixtureId]);
             const currentRound = fixtureData.round;
-            const otherFixtures = await dbAll("SELECT id, home_club_id, away_club_id FROM fixtures WHERE round = ? AND is_played = 0", [currentRound]);
-            
-            // 3. Simula os outros jogos, garantindo que uma formação padrão seja enviada
+            const otherFixtures = await util.promisify(db.all.bind(db))("SELECT id, home_club_id, away_club_id FROM fixtures WHERE round = ? AND is_played = 0", [currentRound]);
             for (const fixture of otherFixtures) {
-                // CORREÇÃO APLICADA AQUI:
-                // Passamos o objeto fixture e adicionamos a formação padrão
-                await simulateAndSaveMatch(db, { 
-                    id: fixture.id,
-                    home_club_id: fixture.home_club_id,
-                    away_club_id: fixture.away_club_id,
-                    formation: '442' // Formação padrão para a IA
-                });
+                await simulateAndSaveMatch(db, { id: fixture.id, home_club_id: fixture.home_club_id, away_club_id: fixture.away_club_id, formation: '442' });
             }
-
             return playerMatchResult;
         } catch (e) {
             console.error('Erro ao executar a rodada:', e.message);
@@ -183,6 +85,57 @@ function registerGameLoopHandlers() {
             db.close();
         }
     });
+}
+
+async function simulateAndSaveMatch(db, fixture) {
+    const dbRun = util.promisify(db.run.bind(db));
+    const dbAll = util.promisify(db.all.bind(db));
+    const dbGet = util.promisify(db.get.bind(db));
+    const homeSquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.home_club_id]);
+    const awaySquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.away_club_id]);
+    const gameState = await dbGet('SELECT player_club_id FROM game_state WHERE id = 1');
+    const playerClubId = gameState.player_club_id;
+    let playerTeamSide = null;
+    if (fixture.lineup) {
+        if (playerClubId === fixture.home_club_id) { playerTeamSide = 'home'; } 
+        else if (playerClubId === fixture.away_club_id) { playerTeamSide = 'away'; }
+    }
+    const scriptPath = path.join(__dirname, '../', 'run_match.py');
+    const pythonProcess = spawn('python', ['-X', 'utf8', scriptPath]);
+    const matchData = { home_squad: homeSquad, away_squad: awaySquad, formation: fixture.formation, lineup: fixture.lineup || null, player_team: playerTeamSide };
+    pythonProcess.stdin.write(JSON.stringify(matchData));
+    pythonProcess.stdin.end();
+    const resultJson = await new Promise((resolve, reject) => {
+        let stdout = ''; let stderr = '';
+        pythonProcess.stdout.on('data', (data) => { stdout += data.toString(); });
+        pythonProcess.stderr.on('data', (data) => { console.error(`[run_match.py DEBUG]: ${data.toString()}`); stderr += data.toString(); });
+        pythonProcess.on('close', (code) => {
+            if (code !== 0) return reject(new Error(stderr));
+            if (stdout.trim() === '') return reject(new Error('O script Python não retornou nenhum resultado.'));
+            resolve(stdout);
+        });
+    });
+    try {
+        const result = JSON.parse(resultJson);
+        await dbRun(`UPDATE fixtures SET home_goals = ?, away_goals = ?, is_played = 1 WHERE id = ?`, [result.home_goals, result.away_goals, fixture.id]);
+        let homeUpdate, awayUpdate;
+        if (result.home_goals > result.away_goals) {
+            homeUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+            awayUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+        } else if (result.away_goals > result.home_goals) {
+            homeUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+            awayUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+        } else {
+            homeUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}`;
+            awayUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}`;
+        }
+        await dbRun(`UPDATE league_tables SET ${homeUpdate} WHERE club_id = ?`, [fixture.home_club_id]);
+        await dbRun(`UPDATE league_tables SET ${awayUpdate} WHERE club_id = ?`, [fixture.away_club_id]);
+        return result;
+    } catch (e) {
+        console.error("Erro ao analisar o JSON do script Python. Saída recebida:", resultJson);
+        throw e;
+    }
 }
 
 module.exports = { registerGameLoopHandlers };

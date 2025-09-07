@@ -14,40 +14,57 @@ def generate_attributes(position):
     elif position == 'Atacante': attrs.update({'finishing': random.randint(14, 20), 'dribbling': random.randint(13, 20), 'composure': random.randint(12, 20), 'acceleration': random.randint(14, 20), 'pace': random.randint(14, 20)})
     return attrs
 
+
 def create_player(cursor, club_id, position):
     fake = Faker('pt_BR')
     nationalities = ['Brasileiro', 'Argentino', 'Uruguaio', 'Chileno', 'Paraguaio', 'Colombiano']
     attrs = generate_attributes(position)
+
+    # Lógica de HA/PA
+    age = random.randint(17, 35)
+    potential_ability = random.randint(80, 180) # Em uma escala de 200
+
+    # Define o HA inicial baseado na idade e no potencial
+    if age >= 28:
+        current_ability = int(potential_ability * random.uniform(0.90, 1.0))
+    elif age >= 23:
+        current_ability = int(potential_ability * random.uniform(0.75, 0.95))
+    else:
+        current_ability = int(potential_ability * random.uniform(0.40, 0.70))
+
+    current_ability = max(60, current_ability) # Garante um mínimo
+
     cursor.execute("""
     INSERT INTO players (name, age, nationality, position, club_id, wage, contract_expires, potential,
     crossing, dribbling, finishing, free_kicks, heading, long_shots, marking, tackling, passing, penalties,
     aggression, anticipation, composure, concentration, decisions, determination, leadership, positioning, vision, work_rate,
-    acceleration, agility, balance, stamina, strength, pace)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (fake.name(), random.randint(17, 35), random.choice(nationalities), position, club_id, random.randint(500, 25000) * (random.randint(17,35) / 10), (date(2025, 1, 20) + timedelta(days=365 * random.randint(1, 5))).strftime('%Y-%m-%d'), random.randint(8, 20), *attrs.values()))
+    acceleration, agility, balance, stamina, strength, pace, current_ability, potential_ability)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (fake.name(), age, random.choice(nationalities), position, club_id, random.randint(500, 25000) * (random.randint(17,35) / 10), (date(2025, 1, 20) + timedelta(days=365 * random.randint(1, 5))).strftime('%Y-%m-%d'), random.randint(8, 20), *attrs.values(), current_ability, potential_ability))
 
 def main():
-    # --- INÍCIO DA ALTERAÇÃO ---
     parser = argparse.ArgumentParser()
     parser.add_argument("--db_path", required=True, help="Caminho para o ficheiro da base de dados")
     args = parser.parse_args()
-    db_path = args.db_path # Usa o caminho fornecido pelo Electron
+    db_path = args.db_path
 
     conn = sqlite3.connect(db_path)
-    # --- FIM DA ALTERAÇÃO ---
-    
     cursor = conn.cursor()
 
     print(f"--- Usando Base de Dados em: {db_path} ---", file=sys.stderr)
     
     cursor.executescript("""
-        DROP TABLE IF EXISTS players; DROP TABLE IF EXISTS clubs; DROP TABLE IF EXISTS league_tables;
-        DROP TABLE IF EXISTS fixtures; DROP TABLE IF EXISTS competitions; DROP TABLE IF EXISTS game_state;
+        DROP TABLE IF EXISTS players; 
+        DROP TABLE IF EXISTS clubs; 
+        DROP TABLE IF EXISTS league_tables;
+        DROP TABLE IF EXISTS fixtures; 
+        DROP TABLE IF EXISTS competitions; 
+        DROP TABLE IF EXISTS game_state;
         CREATE TABLE clubs (id INTEGER PRIMARY KEY, name TEXT, country TEXT, reputation INTEGER, finance_transfer_budget REAL, finance_wage_budget REAL, balance REAL );
-        CREATE TABLE players (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, nationality TEXT, position TEXT, club_id INTEGER, wage REAL, contract_expires TEXT, potential INTEGER, crossing INTEGER, dribbling INTEGER, finishing INTEGER, free_kicks INTEGER, heading INTEGER, long_shots INTEGER, marking INTEGER, tackling INTEGER, passing INTEGER, penalties INTEGER, aggression INTEGER, anticipation INTEGER, composure INTEGER, concentration INTEGER, decisions INTEGER, determination INTEGER, leadership INTEGER, positioning INTEGER, vision INTEGER, work_rate INTEGER, acceleration INTEGER, agility INTEGER, balance INTEGER, stamina INTEGER, strength INTEGER, pace INTEGER, FOREIGN KEY (club_id) REFERENCES clubs (id) );
+        CREATE TABLE players (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, nationality TEXT, position TEXT, club_id INTEGER, wage REAL, contract_expires TEXT, potential INTEGER, crossing INTEGER, dribbling INTEGER, finishing INTEGER, free_kicks INTEGER, heading INTEGER, long_shots INTEGER, marking INTEGER, tackling INTEGER, passing INTEGER, penalties INTEGER, aggression INTEGER, anticipation INTEGER, composure INTEGER, concentration INTEGER, decisions INTEGER, determination INTEGER, leadership INTEGER, positioning INTEGER, vision INTEGER, work_rate INTEGER, acceleration INTEGER, agility INTEGER, balance INTEGER, stamina INTEGER, strength INTEGER, pace INTEGER, current_ability INTEGER, potential_ability INTEGER, FOREIGN KEY (club_id) REFERENCES clubs (id) );
         CREATE TABLE competitions (id INTEGER PRIMARY KEY, name TEXT, country TEXT, type TEXT );
         CREATE TABLE league_tables (competition_id INTEGER, club_id INTEGER, position INTEGER DEFAULT 0, played INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, draws INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, goals_for INTEGER DEFAULT 0, goals_against INTEGER DEFAULT 0, goal_difference INTEGER DEFAULT 0, points INTEGER DEFAULT 0, PRIMARY KEY (competition_id, club_id));
-        CREATE TABLE fixtures (id INTEGER PRIMARY KEY, competition_id INTEGER, round INTEGER, home_club_id INTEGER, away_club_id INTEGER, home_goals INTEGER, away_goals INTEGER, is_played INTEGER DEFAULT 0);
+        CREATE TABLE fixtures (id INTEGER PRIMARY KEY, competition_id INTEGER, round INTEGER, date TEXT, home_club_id INTEGER, away_club_id INTEGER, home_goals INTEGER, away_goals INTEGER, is_played INTEGER DEFAULT 0);
         CREATE TABLE game_state (id INTEGER PRIMARY KEY, current_date TEXT, player_club_id INTEGER);
     """)
     print("Estrutura da Base de Dados recriada corretamente.", file=sys.stderr)
@@ -86,13 +103,17 @@ def main():
         club_ids.insert(1, club_ids.pop())
     
     all_fixtures = fixtures + [list(map(lambda x: (x[1],x[0]), rd)) for rd in fixtures]
+    
+    current_match_date = date(2025, 2, 1)
     for i, round_list in enumerate(all_fixtures):
         for home_id, away_id in round_list:
-            cursor.execute("INSERT INTO fixtures (competition_id, round, home_club_id, away_club_id) VALUES (?, ?, ?, ?)", (competition_id, i + 1, home_id, away_id))
+            cursor.execute("INSERT INTO fixtures (competition_id, round, date, home_club_id, away_club_id) VALUES (?, ?, ?, ?, ?)", 
+                           (competition_id, i + 1, current_match_date.strftime('%Y-%m-%d'), home_id, away_id))
+        current_match_date += timedelta(days=7)
 
     cursor.execute("INSERT INTO game_state (id, current_date) VALUES (1, ?)", ("2025-01-20",))
     conn.commit()
-    print("Temporada e calendário gerados.", file=sys.stderr)
+    print("Temporada e calendário gerados com datas.", file=sys.stderr)
     
     conn.close()
     print("--- GERAÇÃO DO MUNDO CONCLUÍDA COM SUCESSO ---", file=sys.stderr)

@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Lógica da tela de "Novo Jogo"
-    async function initializeNewGameScreen() {
+   async function initializeNewGameScreen() {
         const clubs = await window.api.getAllClubs();
         clubSelection.innerHTML = clubs.map(club => `<option value="${club.id}">${club.name}</option>`).join('');
         
@@ -79,10 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
             views.start.style.display = 'none';
             mainGameInterface.style.display = 'flex';
             
-            // A inicialização agora ocorre aqui, com o nome do clube correto
             await initialLoad(selectedClubName); 
         };
 
+        // SUBSTITUA O BLOCO 'btnGenerateWorld.onclick' INTEIRO POR ESTE:
         btnGenerateWorld.onclick = async () => {
             btnStartGame.disabled = true;
             btnGenerateWorld.disabled = true;
@@ -90,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const response = await window.api.generateNewWorld();
             if (response.success) {
+                console.log("Reconexão com o novo banco de dados solicitada.");
+                // Recarrega a lista de clubes do novo mundo
                 await initializeNewGameScreen();
             } else {
                 alert(`Erro ao gerar o mundo: ${response.message}`);

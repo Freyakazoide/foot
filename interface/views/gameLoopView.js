@@ -30,25 +30,45 @@ export function initGameLoop(showView, refreshData) {
     const homeSquadDisplay = document.getElementById('home-squad-display');
     const awaySquadDisplay = document.getElementById('away-squad-display');
 
-    btnContinue.addEventListener('click', async () => {
-        btnContinue.disabled = true;
-        btnContinue.textContent = 'Avançando...';
-        const newState = await window.api.advanceTime();
-        gameState.currentDate = newState.newDate;
-        gameState.nextMatch = newState.nextMatch;
-        await updateDateDisplay();
-        await refreshData.finances();
+btnContinue.addEventListener('click', async () => {
+    btnContinue.disabled = true;
+    btnContinue.textContent = 'Avançando...';
 
-        if (gameState.nextMatch) {
+    try {
+        // 1. O backend avança o dia e verifica se há um jogo na nova data
+        const newState = await window.api.advanceTime();
+        
+        // --- LOG DE DEPURAÇÃO ---
+        // Vamos inspecionar o que o backend retornou
+        console.log("Resposta do backend (newState):", newState);
+        // --- FIM DO LOG ---
+
+        // 2. Atualiza a data na tela
+        gameState.currentDate = newState.newDate;
+        await updateDateDisplay();
+        await refreshData.finances(); 
+
+        // 3. Se o backend retornou uma partida, é dia de jogo
+        if (newState && newState.nextMatch) {
+            console.log("Dia de jogo encontrado!", newState.nextMatch);
+            gameState.nextMatch = newState.nextMatch;
             matchupContainer.innerHTML = `${newState.nextMatch.home_name} <span style="color: #777;">vs</span> ${newState.nextMatch.away_name}`;
             btnPlayMatchdayGame.style.display = 'block';
             btnFinishMatchday.style.display = 'none';
             showView('matchday');
         } else {
+            // 4. Se não houver partida, reabilita o botão para o próximo dia
+            console.log("Dia normal. Reabilitando o botão 'Continuar'.");
             btnContinue.disabled = false;
             btnContinue.textContent = 'Continuar';
         }
-    });
+    } catch (error) {
+        // 5. Se qualquer erro ocorrer, ele será mostrado no console
+        console.error("Ocorreu um erro ao tentar avançar o dia:", error);
+        // Deixamos o botão desabilitado para indicar que algo quebrou
+        btnContinue.textContent = 'ERRO!';
+    }
+});
 
     function renderSquad(displayElement, teamName, lineup) {
         let html = `<h3>${teamName}</h3>`;
@@ -75,27 +95,26 @@ export function initGameLoop(showView, refreshData) {
         btnPlayMatchdayGame.style.display = 'none';
         [speedControls, commentaryBox, scoreboard, matchTimer, squadsContainer].forEach(el => el.style.display = 'block');
         
-        let homeGoals = 0, awayGoals = 0;
         const { id, home_club_id, away_club_id, home_name, away_name } = gameState.nextMatch;
 
-        scoreboard.textContent = `${home_name} ${homeGoals} x ${awayGoals} ${away_name}`;
+        scoreboard.textContent = `${home_name} 0 x 0 ${away_name}`;
         commentaryBox.innerHTML = '';
         matchTimer.textContent = "00:00";
         
-        try {
-const lineupIsComplete = startingLineup.every(player => player !== null);
-const lineupPlayerIds = startingLineup.map(p => p.id); // Agora podemos mapear diretamente
-
-    console.log("[gameLoopView] Escalação completa?", lineupIsComplete);
-    console.log("[gameLoopView] Array de IDs enviado:", lineupPlayerIds);
-    
-if (!lineupIsComplete) {
+        const lineupIsComplete = startingLineup.every(player => player !== null);
+        const lineupPlayerIds = lineupIsComplete ? startingLineup.map(p => p.id) : null;
+        
+        if (!lineupIsComplete) {
             alert("Você precisa escalar 11 jogadores antes de iniciar a partida!");
+            btnPlayMatchdayGame.style.display = 'block';
+            [speedControls, commentaryBox, scoreboard, matchTimer, squadsContainer].forEach(el => el.style.display = 'none');
             return;
         }
-
+        
+        try {
             const result = await window.api.runMatch(id, home_club_id, away_club_id, currentFormation, lineupPlayerIds);
             
+            let homeGoals = 0, awayGoals = 0;
             renderSquad(homeSquadDisplay, home_name, result.home_lineup);
             renderSquad(awaySquadDisplay, away_name, result.away_lineup);
 

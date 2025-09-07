@@ -136,7 +136,7 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
         players.forEach(player => {
             const listItem = document.createElement('li');
             const formattedWage = player.wage.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            listItem.textContent = `${player.name} (${player.position}, ${player.age} anos) - ${formattedWage}/mês - Contrato até: ${player.contract_expires}`;
+            listItem.textContent = `${player.name} (${player.position}, ${player.age} anos) | HA: ${player.current_ability} / PA: ${player.potential_ability} | ${formattedWage}/mês`;
             listItem.dataset.playerId = player.id;
             listItem.style.cursor = 'pointer';
             listItem.addEventListener('click', () => showPlayerProfile(player.id, showViewCallback, 'squad'));

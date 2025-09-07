@@ -19,6 +19,7 @@ function createWindow() {
 app.whenReady().then(() => {
     createWindow();
     
+    // Os handlers agora gerenciam suas próprias conexões novamente
     registerGameSetupHandlers();
     registerGameLoopHandlers();
     registerDataHandlers();
