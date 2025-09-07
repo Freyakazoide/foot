@@ -11,7 +11,7 @@
         main { padding: 20px; overflow-y: auto; flex-grow: 1; display: none; }
         main.active { display: block; }
         nav { background-color: #1e1e1e; padding: 10px 20px; display: flex; gap: 10px; border-bottom: 2px solid #4fa8e2; flex-shrink: 0; align-items: center; }
-        nav button { background-color: #3a3a3a; color: #f0f0f0; border: 1px solid #555; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        nav button, .styled-button { background-color: #3a3a3a; color: #f0f0f0; border: 1px solid #555; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }
         nav button.active { background-color: #4fa8e2; color: #1e1e1e; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #444a57; }
@@ -29,15 +29,14 @@
         .finance-box span, .negotiation-box span { font-weight: bold; color: #61afef; }
         .search-filters { display: flex; gap: 10px; align-items: center; background-color: #3a3a3a; padding: 15px; border-radius: 8px; }
         .search-filters input, .search-filters select { padding: 8px; font-size: 14px; background-color: #2e2e2e; color: #f0f0f0; border: 1px solid #555; border-radius: 4px;}
-        .player-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .player-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .attribute-box { background-color: #3a3a3a; padding: 15px; border-radius: 8px; }
         .attribute-box h3 { margin-top: 0; color: #98c379; }
         .attribute-box p { display: flex; justify-content: space-between; margin: 5px 0; }
         .negotiation-buttons { display: flex; justify-content: space-around; margin-top: 20px; }
         
-        /* CSS CORRIGIDO E ADICIONADO */
-        .match-squads-container { display: flex; justify-content: center; gap: 20px; width: 100%; flex-grow: 1; }
-        .squad-display { flex-basis: 45%; max-width: 45%; background-color: #2e2e2e; border: 1px solid #444a57; border-radius: 4px; padding: 10px; display: flex; flex-direction: column; }
+        .match-squads-container { display: flex; justify-content: center; gap: 20px; width: 100%; }
+        .squad-display { flex-basis: 45%; max-width: 45%; background-color: #2e2e2e; border: 1px solid #444a57; border-radius: 4px; padding: 10px; }
         .squad-display h3 { margin-top: 0; text-align: center; color: #e5c07b; }
         .player-line { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 14px; border-bottom: 1px solid #3a3a3a; }
         .player-info { display: flex; align-items: center; gap: 5px; text-align: left; }
@@ -46,6 +45,13 @@
         .stamina-bar-container { width: 50px; height: 10px; background-color: #555; border: 1px solid #888; border-radius: 2px;}
         .stamina-bar { height: 100%; width: 100%; background-color: #98c379; border-radius: 1px; transition: width 0.5s ease, background-color 0.5s ease;}
         .player-goals { min-width: 40px; text-align: left; }
+
+.modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+.modal-content { background-color: #3a3a3a; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 8px; }
+.modal-content ul { list-style-type: none; padding: 0; }
+.modal-content li { padding: 8px; border-bottom: 1px solid #555; cursor: pointer; }
+.modal-content li:hover { background-color: #4fa8e2; color: #1e1e1e; }
+.close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -67,41 +73,151 @@
             <button id="btn-calendar">Calendário</button>
             <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
                 <div id="current-date-display" style="color: #e5c07b; font-weight: bold;"></div>
-                <button id="btn-continue" style="background-color: #98c379; color: #1e1e1e; font-weight: bold;">Continuar</button>
+                <button id="btn-continue" class="styled-button" style="background-color: #98c379; color: #1e1e1e; font-weight: bold;">Continuar</button>
             </div>
         </nav>
 
+        <div id="player-selection-modal" class="modal">
+        <div class="modal-content">
+        <span id="close-modal-button" class="close-button">&times;</span>
+        <h3>Escolha um Jogador</h3>
+        <ul id="modal-player-list"></ul>
+        </div>
+        </div>
+
         <main id="squad-view"> <h2 id="squad-header">Elenco</h2> <ul id="player-list"></ul> </main>
-        <main id="tactics-view"> <h2 id="tactics-header">Esquema Tático</h2> <div id="tactics-container"> <div class="pitch" id="pitch"></div> <div class="tactics-menu"> <h3>Opções</h3> <label for="formation-select">Formação:</label> <select id="formation-select"> <option value="442">4-4-2</option> <option value="433">4-3-3</option> <option value="352">3-5-2</option> </select> </div> </div> </main>
+<main id="tactics-view">
+    <h2>Esquema Tático</h2>
+    <div id="tactics-container">
+        <div class="pitch" id="pitch"></div>
+        <div class="tactics-menu">
+            <h3>Opções</h3>
+            <label for="formation-select">Formação:</label>
+            <select id="formation-select">
+                <option value="442">4-4-2</option>
+                <option value="433">4-3-3</option>
+                <option value="352">3-5-2</option>
+            </select>
+            <button id="btn-clear-lineup" class="styled-button">Limpar Escalação</button>
+            <hr style="border-color: #444; margin: 20px 0;">
+            <h3>Jogadores Disponíveis</h3>
+            <ul id="tactics-player-pool" style="height: 350px; overflow-y: auto; padding: 5px; border: 1px solid #444;">
+                </ul>
+        </div>
+    </div>
+</main>
         <main id="finances-view"> <h2>Finanças do Clube</h2> <div class="finance-box"> <p>Saldo Atual: <span id="finance-balance"></span></p> <p>Folha Salarial (Mensal): <span id="finance-wages"></span></p> </div> </main>
-        <main id="market-view"> <h2>Mercado de Transferências</h2> <div class="search-filters"> <input type="text" id="search-name" placeholder="Nome do jogador..."> <select id="search-position"> <option value="all">Todas as Posições</option> <option value="Goleiro">Goleiro</option> <option value="Zagueiro">Zagueiro</option> <option value="Meio-campo">Meio-campo</option> <option value="Atacante">Atacante</option> </select> <button id="btn-search-players">Buscar</button> </div> <table id="search-results-table"></table> </main>
-        <main id="player-profile-view"> </main>
-        <main id="negotiation-view"> </main>
+        <main id="market-view"> <h2>Mercado de Transferências</h2> <div class="search-filters"> <input type="text" id="search-name" placeholder="Nome do jogador..."> <select id="search-position"> <option value="all">Todas as Posições</option> <option value="Goleiro">Goleiro</option> <option value="Zagueiro">Zagueiro</option> <option value="Meio-campo">Meio-campo</option> <option value="Atacante">Atacante</option> </select> <button id="btn-search-players" class="styled-button">Buscar</button> </div> <table id="search-results-table"></table> </main>
+        
+        <main id="player-profile-view">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="profile-player-name">Nome do Jogador</h2>
+                <button id="btn-back-from-profile" class="styled-button">Voltar</button>
+            </div>
+            <div class="player-profile-grid">
+                <div class="attribute-box">
+                    <h3>Informações Pessoais</h3>
+                    <p>Clube: <span id="profile-club-name"></span></p>
+                    <p>Idade: <span id="profile-age"></span></p>
+                    <p>Posição: <span id="profile-position"></span></p>
+                    <p>Nacionalidade: <span id="profile-nationality"></span></p>
+                    <p>Salário: <span id="profile-wage"></span></p>
+                    <p>Contrato: <span id="profile-contract"></span></p>
+                    <p>Valor de Mercado: <span id="profile-market-value"></span></p>
+                </div>
+                <div class="attribute-box">
+                    <h3>Atributos Físicos</h3>
+                    <p>Aceleração: <span id="profile-acceleration"></span></p>
+                    <p>Agilidade: <span id="profile-agility"></span></p>
+                    <p>Equilíbrio: <span id="profile-balance"></span></p>
+                    <p>Resistência: <span id="profile-stamina"></span></p>
+                    <p>Força: <span id="profile-strength"></span></p>
+                    <p>Velocidade: <span id="profile-pace"></span></p>
+                </div>
+                <div class="attribute-box">
+                    <h3>Atributos Mentais</h3>
+                    <p>Agressividade: <span id="profile-aggression"></span></p>
+                    <p>Antecipação: <span id="profile-anticipation"></span></p>
+                    <p>Frieza: <span id="profile-composure"></span></p>
+                    <p>Concentração: <span id="profile-concentration"></span></p>
+                    <p>Decisões: <span id="profile-decisions"></span></p>
+                    <p>Determinação: <span id="profile-determination"></span></p>
+                    <p>Liderança: <span id="profile-leadership"></span></p>
+                    <p>Posicionamento: <span id="profile-positioning"></span></p>
+                    <p>Visão de Jogo: <span id="profile-vision"></span></p>
+                    <p>Índ. de Trabalho: <span id="profile-work_rate"></span></p>
+                </div>
+                <div class="attribute-box">
+                    <h3>Atributos Técnicos</h3>
+                    <p>Cruzamento: <span id="profile-crossing"></span></p>
+                    <p>Drible: <span id="profile-dribbling"></span></p>
+                    <p>Finalização: <span id="profile-finishing"></span></p>
+                    <p>Bolas Paradas: <span id="profile-free_kicks"></span></p>
+                    <p>Cabeceamento: <span id="profile-heading"></span></p>
+                    <p>Chutes de Longe: <span id="profile-long_shots"></span></p>
+                    <p>Marcação: <span id="profile-marking"></span></p>
+                    <p>Desarme: <span id="profile-tackling"></span></p>
+                    <p>Passe: <span id="profile-passing"></span></p>
+                    <p>Pênaltis: <span id="profile-penalties"></span></p>
+                </div>
+                <div id="profile-transfer-section" class="attribute-box" style="grid-column: 1 / -1;">
+                    <h3>Proposta de Transferência</h3>
+                    <p>Seu Saldo: <span id="profile-my-balance"></span></p>
+                    <div style="margin-top: 15px;">
+                        <label for="profile-offer-amount">Valor da Proposta: </label>
+                        <input type="text" id="profile-offer-amount" placeholder="Ex: 1.500.000">
+                    </div>
+                    <div id="offer-suggestion-buttons" style="margin-top: 10px; display: flex; gap: 5px;"></div>
+                    <button id="btn-make-offer" class="styled-button" style="margin-top: 15px;">Fazer Proposta</button>
+                    <p id="offer-response-message" style="margin-top: 10px;"></p>
+                </div>
+            </div>
+        </main>
+        
+        <main id="negotiation-view">
+            <h2>Negociação de Contrato</h2>
+            <div class="negotiation-box">
+                <p>Negociando com: <span id="negotiation-player-name"></span></p>
+                <hr>
+                <h3>Exigências do Jogador</h3>
+                <p>Taxa de Transferência: <span id="negotiation-fee"></span></p>
+                <p>Salário: <span id="negotiation-wage"></span></p>
+                <p>Duração do Contrato: <span id="negotiation-length"></span></p>
+                <div class="negotiation-buttons">
+                    <button id="btn-accept-demands" class="styled-button" style="background-color: #98c379;">Aceitar Exigências</button>
+                    <button id="btn-reject-negotiation" class="styled-button" style="background-color: #e06c75;">Rejeitar e Desistir</button>
+                </div>
+                <p id="negotiation-response-message" style="margin-top: 20px; text-align: center;"></p>
+            </div>
+        </main>
+
         <main id="competition-view"> <h2>Campeonato Brasileiro - Classificação</h2> <table id="league-table"></table> </main>
         <main id="calendar-view"> <h2>Calendário de Jogos</h2> <table id="fixtures-table"></table> </main>
 
         <main id="matchday-view" style="display: flex; flex-direction: column; text-align: center;">
             <h2>Dia de Jogo!</h2>
-            <div id="matchup-container" style="font-size: 2em; margin: 5px 0;"></div>
-            <div id="match-timer" style="font-size: 1.5em; color: #e5c07b; font-weight: bold; margin-bottom: 5px; display: none;">00:00</div>
-            <div id="matchday-scoreboard" style="font-size: 2.5em; font-weight: bold; margin-bottom: 5px; display: none;">0 x 0</div>
-            <div id="matchday-speed-controls" style="margin-bottom: 5px; display: none;">
+            <div id="matchup-container" style="font-size: 2em; margin: 20px 0;"></div>
+            <div id="matchday-scoreboard" style="font-size: 2.5em; font-weight: bold; margin-bottom: 20px; display: none;"></div>
+            <div id="match-timer" style="font-size: 1.5em; color: #e5c07b; font-weight: bold; margin-bottom: 10px; display: none;">00:00</div>
+            
+            <div id="matchday-speed-controls" style="margin-bottom: 10px; display: none;">
                 <span>Velocidade:</span>
                 <input type="radio" id="speed-very-slow" name="speed" value="800"><label for="speed-very-slow">Muito Lenta</label>
                 <input type="radio" id="speed-slow" name="speed" value="500"><label for="speed-slow">Lenta</label>
                 <input type="radio" id="speed-normal" name="speed" value="250" checked><label for="speed-normal">Normal</label>
                 <input type="radio" id="speed-fast" name="speed" value="100"><label for="speed-fast">Rápida</label>
             </div>
-            <div id="matchday-commentary" style="height: 150px; overflow-y: scroll; border: 1px solid #444a57; padding: 10px; text-align: left; background-color: #2e2e2e; margin: 5px auto; max-width: 80%; font-family: monospace; display: none;"></div>
             
+            <div id="matchday-commentary" style="height: 150px; overflow-y: scroll; border: 1px solid #444; padding: 10px; text-align: left; background-color: #282c34; margin: 0 auto 20px auto; max-width: 80%; font-family: monospace; display: none;"></div>
+
             <div class="match-squads-container" id="match-squads-container" style="display: none; flex-grow: 1;">
-                <div class="squad-display" id="home-squad-display"><h3>Casa</h3></div>
-                <div class="squad-display" id="away-squad-display"><h3>Visitante</h3></div>
+                <div class="squad-display" id="home-squad-display"></div>
+                <div class="squad-display" id="away-squad-display"></div>
             </div>
 
-            <div style="padding: 10px 0;">
-                <button id="btn-play-matchday-game" style="padding: 15px 30px; font-size: 1.2em;">Jogar Partida</button>
-                <button id="btn-finish-matchday" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: #61afef;">Finalizar Partida</button>
+            <div style="margin-top: auto; padding-bottom: 20px;">
+                <button id="btn-play-matchday-game" class="styled-button" style="padding: 15px 30px; font-size: 1.2em;">Jogar Partida</button>
+                <button id="btn-finish-matchday" class="styled-button" style="padding: 15px 30px; font-size: 1.2em; display: none; background-color: #61afef;">Finalizar Partida</button>
             </div>
         </main>
     </div>

@@ -1,4 +1,4 @@
-import { currentFormation } from './squadAndTacticsView.js';
+import { currentFormation, startingLineup } from './squadAndTacticsView.js';
 
 let gameState = { currentDate: null, nextMatch: null };
 
@@ -83,7 +83,18 @@ export function initGameLoop(showView, refreshData) {
         matchTimer.textContent = "00:00";
         
         try {
-            const result = await window.api.runMatch(id, home_club_id, away_club_id, currentFormation);
+const lineupIsComplete = startingLineup.every(player => player !== null);
+const lineupPlayerIds = startingLineup.map(p => p.id); // Agora podemos mapear diretamente
+
+    console.log("[gameLoopView] Escalação completa?", lineupIsComplete);
+    console.log("[gameLoopView] Array de IDs enviado:", lineupPlayerIds);
+    
+if (!lineupIsComplete) {
+            alert("Você precisa escalar 11 jogadores antes de iniciar a partida!");
+            return;
+        }
+
+            const result = await window.api.runMatch(id, home_club_id, away_club_id, currentFormation, lineupPlayerIds);
             
             renderSquad(homeSquadDisplay, home_name, result.home_lineup);
             renderSquad(awaySquadDisplay, away_name, result.away_lineup);

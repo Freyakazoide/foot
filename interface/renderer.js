@@ -41,10 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Função que carrega todos os dados do jogo
-    async function initialLoad() {
-        const playerClubName = clubSelection.options[clubSelection.selectedIndex].text;
-        
-        // Objeto com todas as funções de atualização para ser passado para outras partes do código
+    async function initialLoad(playerClubName) {
         const refreshData = {
             squad: () => loadPlayersData(playerClubName, showView),
             finances: loadFinanceData,
@@ -52,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
             leagueTable: loadLeagueTable,
         };
 
-        // Carrega os dados em paralelo para ser mais rápido
         await Promise.all([
             loadInitialGameState(),
             refreshData.squad(),
@@ -61,13 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshData.finances()
         ]);
         
-        // Inicializa as visualizações que precisam de lógica interativa
+        // As inicializações foram movidas para o clique do botão
         initTacticsView();
         initMarketView(showView, refreshData);
-        initGameLoop(showView, refreshData); // O GameLoop agora gerencia a tela de partida
+        initGameLoop(showView, refreshData);
 
-        // A tela inicial SEMPRE será o elenco
-        showView('squad');
+        showView('squad'); // Garante que a tela de elenco seja a primeira
     }
 
     // Lógica da tela de "Novo Jogo"
@@ -76,10 +71,16 @@ document.addEventListener('DOMContentLoaded', () => {
         clubSelection.innerHTML = clubs.map(club => `<option value="${club.id}">${club.name}</option>`).join('');
         
         btnStartGame.onclick = async () => {
-            await window.api.startNewGame(clubSelection.value);
+            const selectedClubId = clubSelection.value;
+            const selectedClubName = clubSelection.options[clubSelection.selectedIndex].text;
+            
+            await window.api.startNewGame(selectedClubId);
+            
             views.start.style.display = 'none';
             mainGameInterface.style.display = 'flex';
-            initialLoad(); 
+            
+            // A inicialização agora ocorre aqui, com o nome do clube correto
+            await initialLoad(selectedClubName); 
         };
 
         btnGenerateWorld.onclick = async () => {

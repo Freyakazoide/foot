@@ -8,26 +8,39 @@ const dbPath = path.join(__dirname, '../', 'foot.db');
 
 async function simulateAndSaveMatch(db, fixture) {
     const dbRun = util.promisify(db.run.bind(db));
-    const dbAll = util.promisify(db.all.bind(db)); // Adicione esta linha
+    const dbAll = util.promisify(db.all.bind(db));
+    const dbGet = util.promisify(db.get.bind(db)); // Adicionado para buscar o estado do jogo
 
-    // --- INÍCIO DA GRANDE MUDANÇA ---
-    // 1. Busca os jogadores de ambos os times AQUI no JavaScript
+    // --- INÍCIO DA CORREÇÃO ---
+    // 1. Busca os jogadores e o ID do clube do jogador
     const homeSquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.home_club_id]);
     const awaySquad = await dbAll('SELECT * FROM players WHERE club_id = ?', [fixture.away_club_id]);
+    const gameState = await dbGet('SELECT player_club_id FROM game_state WHERE id = 1');
+    const playerClubId = gameState.player_club_id;
 
-    // 2. Executa o script Python, mas agora envia os dados dos jogadores diretamente
+    // 2. Determina se o jogador é o time da casa ou visitante
+    let playerTeamSide = null;
+    if (fixture.lineup) { // Apenas define o lado do jogador se uma escalação foi enviada
+        if (playerClubId === fixture.home_club_id) {
+            playerTeamSide = 'home';
+        } else if (playerClubId === fixture.away_club_id) {
+            playerTeamSide = 'away';
+        }
+    }
+    // --- FIM DA CORREÇÃO ---
+
     const scriptPath = path.join(__dirname, '../', 'run_match.py');
     const pythonProcess = spawn('python', ['-X', 'utf8', scriptPath]);
 
-    // 3. Envia os dados dos elencos para o Python através da entrada padrão (stdin)
     const matchData = {
         home_squad: homeSquad,
         away_squad: awaySquad,
-        formation: fixture.formation
+        formation: fixture.formation,
+        lineup: fixture.lineup || null,
+        player_team: playerTeamSide // Envia a informação para o Python
     };
     pythonProcess.stdin.write(JSON.stringify(matchData));
     pythonProcess.stdin.end();
-    // --- FIM DA GRANDE MUDANÇA ---
     
     const resultJson = await new Promise((resolve, reject) => {
         let stdout = '';
@@ -126,20 +139,24 @@ function registerGameLoopHandlers() {
         }
     });
 
-    ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId, formation }) => {
+        ipcMain.handle('run-match', async (event, { fixtureId, homeId, awayId, formation, lineup }) => {
+
+                console.log("[gameLoopHandlers] Escalação recebida:", lineup);
+
         const db = new sqlite3.Database(dbPath);
         
         const dbGet = util.promisify(db.get.bind(db));
         const dbAll = util.promisify(db.all.bind(db));
 
-        try {
-            // 1. Simula a partida do jogador com a formação escolhida
-            const playerMatchResult = await simulateAndSaveMatch(db, { 
-                id: fixtureId, 
-                home_club_id: homeId, 
-                away_club_id: awayId, 
-                formation: formation // A formação vem da interface
-            });
+    try {
+        // 1. Simula a partida do jogador com a formação E ESCALAÇÃO escolhidas
+        const playerMatchResult = await simulateAndSaveMatch(db, { 
+            id: fixtureId, 
+            home_club_id: homeId, 
+            away_club_id: awayId, 
+            formation: formation, // A formação vem da interface
+            lineup: lineup // A escalação agora vem da interface
+        });
 
             // 2. Pega os outros jogos da rodada
             const fixtureData = await dbGet("SELECT round FROM fixtures WHERE id = ?", [fixtureId]);

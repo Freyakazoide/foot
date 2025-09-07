@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getPlayers: () => ipcRenderer.invoke('get-players'),
-  runMatch: (fixtureId, homeId, awayId, formation) => ipcRenderer.invoke('run-match', { fixtureId, homeId, awayId, formation }),
+  runMatch: (fixtureId, homeId, awayId, formation, lineup) => ipcRenderer.invoke('run-match', { fixtureId, homeId, awayId, formation, lineup }),
   getLeagueTable: () => ipcRenderer.invoke('get-league-table'),
   getFixtures: () => ipcRenderer.invoke('get-fixtures'),
   getGameState: () => ipcRenderer.invoke('get-game-state'),
