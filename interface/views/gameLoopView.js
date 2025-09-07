@@ -30,45 +30,41 @@ export function initGameLoop(showView, refreshData) {
     const homeSquadDisplay = document.getElementById('home-squad-display');
     const awaySquadDisplay = document.getElementById('away-squad-display');
 
-btnContinue.addEventListener('click', async () => {
-    btnContinue.disabled = true;
-    btnContinue.textContent = 'Avançando...';
+    btnContinue.addEventListener('click', async () => {
+        btnContinue.disabled = true;
+        btnContinue.textContent = 'Avançando...';
 
-    try {
-        // 1. O backend avança o dia e verifica se há um jogo na nova data
-        const newState = await window.api.advanceTime();
-        
-        // --- LOG DE DEPURAÇÃO ---
-        // Vamos inspecionar o que o backend retornou
-        console.log("Resposta do backend (newState):", newState);
-        // --- FIM DO LOG ---
+        try {
+            const newState = await window.api.advanceTime(gameState.currentDate);
+            
+            console.log("Resposta do backend (newState):", newState);
 
-        // 2. Atualiza a data na tela
-        gameState.currentDate = newState.newDate;
-        await updateDateDisplay();
-        await refreshData.finances(); 
+            gameState.currentDate = newState.newDate;
+            await updateDateDisplay();
+            
+            // --- CORREÇÃO PRINCIPAL APLICADA AQUI ---
+            // Recarrega os dados do elenco e finanças após CADA avanço de dia.
+            // Isso garante que as atualizações de atributos mensais sejam refletidas.
+            await refreshData.squad(); 
+            await refreshData.finances(); 
 
-        // 3. Se o backend retornou uma partida, é dia de jogo
-        if (newState && newState.nextMatch) {
-            console.log("Dia de jogo encontrado!", newState.nextMatch);
-            gameState.nextMatch = newState.nextMatch;
-            matchupContainer.innerHTML = `${newState.nextMatch.home_name} <span style="color: #777;">vs</span> ${newState.nextMatch.away_name}`;
-            btnPlayMatchdayGame.style.display = 'block';
-            btnFinishMatchday.style.display = 'none';
-            showView('matchday');
-        } else {
-            // 4. Se não houver partida, reabilita o botão para o próximo dia
-            console.log("Dia normal. Reabilitando o botão 'Continuar'.");
-            btnContinue.disabled = false;
-            btnContinue.textContent = 'Continuar';
+            if (newState && newState.nextMatch) {
+                console.log("Dia de jogo encontrado!", newState.nextMatch);
+                gameState.nextMatch = newState.nextMatch;
+                matchupContainer.innerHTML = `${newState.nextMatch.home_name} <span style="color: #777;">vs</span> ${newState.nextMatch.away_name}`;
+                btnPlayMatchdayGame.style.display = 'block';
+                btnFinishMatchday.style.display = 'none';
+                showView('matchday');
+            } else {
+                console.log("Dia normal. Reabilitando o botão 'Continuar'.");
+                btnContinue.disabled = false;
+                btnContinue.textContent = 'Continuar';
+            }
+        } catch (error) {
+            console.error("Ocorreu um erro ao tentar avançar o dia:", error);
+            btnContinue.textContent = 'ERRO!';
         }
-    } catch (error) {
-        // 5. Se qualquer erro ocorrer, ele será mostrado no console
-        console.error("Ocorreu um erro ao tentar avançar o dia:", error);
-        // Deixamos o botão desabilitado para indicar que algo quebrou
-        btnContinue.textContent = 'ERRO!';
-    }
-});
+    });
 
     function renderSquad(displayElement, teamName, lineup) {
         let html = `<h3>${teamName}</h3>`;
@@ -122,6 +118,7 @@ btnContinue.addEventListener('click', async () => {
                 if (eventIndex >= result.events.length) {
                     speedControls.style.display = 'none';
                     btnFinishMatchday.style.display = 'block';
+                    // Os dados são atualizados aqui, no final da simulação
                     refreshData.fixtures();
                     refreshData.leagueTable();
                     return;
@@ -176,7 +173,11 @@ btnContinue.addEventListener('click', async () => {
         }
     });
 
-    btnFinishMatchday.addEventListener('click', () => {
+    btnFinishMatchday.addEventListener('click', async () => {
+        // --- CORREÇÃO DO CALENDÁRIO APLICADA AQUI ---
+        // Forçamos a atualização dos jogos ANTES de mostrar a tela.
+        await refreshData.fixtures(); // Adicione 'await' aqui
+        
         showView('calendar');
         btnContinue.disabled = false;
         btnContinue.textContent = 'Continuar';

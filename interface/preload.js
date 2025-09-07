@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   getLeagueTable: () => ipcRenderer.invoke('get-league-table'),
   getFixtures: () => ipcRenderer.invoke('get-fixtures'),
   getGameState: () => ipcRenderer.invoke('get-game-state'),
-  advanceTime: () => ipcRenderer.invoke('advance-time'),
+  advanceTime: (currentDate) => ipcRenderer.invoke('advance-time', { currentDate }),
   getAllClubs: () => ipcRenderer.invoke('get-all-clubs'),
   startNewGame: (clubId) => ipcRenderer.invoke('start-new-game', { clubId }),
   getFinanceData: () => ipcRenderer.invoke('get-finance-data'),
@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   makeTransferOffer: (playerId, offerAmount) => ipcRenderer.invoke('make-transfer-offer', { playerId, offerAmount }),
   finalizeTransfer: (negotiationDetails) => ipcRenderer.invoke('finalize-transfer', { negotiationDetails }),
   generateNewWorld: () => ipcRenderer.invoke('generate-new-world'),
+  getTrainingFocus: () => ipcRenderer.invoke('get-training-focus'),
+  setTrainingFocus: (focus) => ipcRenderer.invoke('set-training-focus', focus),
+  getLastTrainingReport: () => ipcRenderer.invoke('get-last-training-report'),
 });

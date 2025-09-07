@@ -5,6 +5,7 @@ import sys
 import argparse
 from faker import Faker
 from datetime import date, timedelta
+from ha_calculator import calculate_current_ability, ALL_ATTRIBUTES
 
 def generate_attributes(position):
     attrs = {'crossing': random.randint(1, 15), 'dribbling': random.randint(1, 15), 'finishing': random.randint(1, 15),'free_kicks': random.randint(1, 15), 'heading': random.randint(1, 15), 'long_shots': random.randint(1, 15),'marking': random.randint(1, 15), 'tackling': random.randint(1, 15), 'passing': random.randint(1, 15),'penalties': random.randint(1, 15), 'aggression': random.randint(1, 15), 'anticipation': random.randint(1, 15),'composure': random.randint(1, 15), 'concentration': random.randint(1, 15), 'decisions': random.randint(1, 15),'determination': random.randint(1, 15), 'leadership': random.randint(1, 15), 'positioning': random.randint(1, 15),'vision': random.randint(1, 15), 'work_rate': random.randint(1, 15), 'acceleration': random.randint(1, 15),'agility': random.randint(1, 15), 'balance': random.randint(1, 15), 'stamina': random.randint(1, 15),'strength': random.randint(1, 15), 'pace': random.randint(1, 15)}
@@ -14,25 +15,22 @@ def generate_attributes(position):
     elif position == 'Atacante': attrs.update({'finishing': random.randint(14, 20), 'dribbling': random.randint(13, 20), 'composure': random.randint(12, 20), 'acceleration': random.randint(14, 20), 'pace': random.randint(14, 20)})
     return attrs
 
-
 def create_player(cursor, club_id, position):
     fake = Faker('pt_BR')
     nationalities = ['Brasileiro', 'Argentino', 'Uruguaio', 'Chileno', 'Paraguaio', 'Colombiano']
     attrs = generate_attributes(position)
-
-    # Lógica de HA/PA
     age = random.randint(17, 35)
-    potential_ability = random.randint(80, 180) # Em uma escala de 200
+    
+    # O Potencial de Habilidade ainda é gerado aleatoriamente
+    potential_ability = random.randint(80, 180)
 
-    # Define o HA inicial baseado na idade e no potencial
-    if age >= 28:
-        current_ability = int(potential_ability * random.uniform(0.90, 1.0))
-    elif age >= 23:
-        current_ability = int(potential_ability * random.uniform(0.75, 0.95))
-    else:
-        current_ability = int(potential_ability * random.uniform(0.40, 0.70))
-
-    current_ability = max(60, current_ability) # Garante um mínimo
+    # --- MUDANÇA PRINCIPAL ---
+    # O HA agora é calculado com base nos atributos iniciais usando a função unificada
+    player_initial_attributes = {'position': position, **attrs}
+    current_ability = calculate_current_ability(player_initial_attributes)
+    
+    # Garante que o HA não seja maior que o PA
+    current_ability = min(current_ability, potential_ability)
 
     cursor.execute("""
     INSERT INTO players (name, age, nationality, position, club_id, wage, contract_expires, potential,
@@ -60,12 +58,14 @@ def main():
         DROP TABLE IF EXISTS fixtures; 
         DROP TABLE IF EXISTS competitions; 
         DROP TABLE IF EXISTS game_state;
+        DROP TABLE IF EXISTS training;
         CREATE TABLE clubs (id INTEGER PRIMARY KEY, name TEXT, country TEXT, reputation INTEGER, finance_transfer_budget REAL, finance_wage_budget REAL, balance REAL );
         CREATE TABLE players (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, nationality TEXT, position TEXT, club_id INTEGER, wage REAL, contract_expires TEXT, potential INTEGER, crossing INTEGER, dribbling INTEGER, finishing INTEGER, free_kicks INTEGER, heading INTEGER, long_shots INTEGER, marking INTEGER, tackling INTEGER, passing INTEGER, penalties INTEGER, aggression INTEGER, anticipation INTEGER, composure INTEGER, concentration INTEGER, decisions INTEGER, determination INTEGER, leadership INTEGER, positioning INTEGER, vision INTEGER, work_rate INTEGER, acceleration INTEGER, agility INTEGER, balance INTEGER, stamina INTEGER, strength INTEGER, pace INTEGER, current_ability INTEGER, potential_ability INTEGER, FOREIGN KEY (club_id) REFERENCES clubs (id) );
         CREATE TABLE competitions (id INTEGER PRIMARY KEY, name TEXT, country TEXT, type TEXT );
         CREATE TABLE league_tables (competition_id INTEGER, club_id INTEGER, position INTEGER DEFAULT 0, played INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, draws INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, goals_for INTEGER DEFAULT 0, goals_against INTEGER DEFAULT 0, goal_difference INTEGER DEFAULT 0, points INTEGER DEFAULT 0, PRIMARY KEY (competition_id, club_id));
         CREATE TABLE fixtures (id INTEGER PRIMARY KEY, competition_id INTEGER, round INTEGER, date TEXT, home_club_id INTEGER, away_club_id INTEGER, home_goals INTEGER, away_goals INTEGER, is_played INTEGER DEFAULT 0);
         CREATE TABLE game_state (id INTEGER PRIMARY KEY, current_date TEXT, player_club_id INTEGER);
+        CREATE TABLE training (club_id INTEGER PRIMARY KEY, focus TEXT DEFAULT 'geral');
     """)
     print("Estrutura da Base de Dados recriada corretamente.", file=sys.stderr)
 
@@ -84,6 +84,7 @@ def main():
         for position, count in min_positions.items():
             for _ in range(count): create_player(cursor, club_id, position)
         for _ in range(squad_size - sum(min_positions.values())): create_player(cursor, club_id, random.choice(list(min_positions.keys())))
+        cursor.execute("INSERT OR IGNORE INTO training (club_id) VALUES (?)", (club_id,))
     conn.commit()
     print(f"Clubes e {len(club_ids) * squad_size} jogadores gerados com planteis equilibrados.", file=sys.stderr)
     

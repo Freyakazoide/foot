@@ -1,9 +1,10 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { registerGameSetupHandlers } = require('./ipcHandlers/gameSetupHandlers');
-const { registerGameLoopHandlers } = require('./ipcHandlers/gameLoopHandlers');
+const { registerGameLoopHandlers, registerTrainingReportHandler } = require('./ipcHandlers/gameLoopHandlers'); // ATUALIZADO
 const { registerDataHandlers } = require('./ipcHandlers/dataHandlers');
 const { registerPlayerHandlers } = require('./ipcHandlers/playerHandlers');
+const { registerTrainingHandlers } = require('./ipcHandlers/trainingHandlers');
 
 function createWindow() {
     const win = new BrowserWindow({ 
@@ -23,7 +24,9 @@ app.whenReady().then(() => {
     registerGameSetupHandlers();
     registerGameLoopHandlers();
     registerDataHandlers();
+    registerTrainingReportHandler();
     registerPlayerHandlers();
+    registerTrainingHandlers();
 });
 
 app.on('window-all-closed', () => { 

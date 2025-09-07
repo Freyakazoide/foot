@@ -1,10 +1,45 @@
 const formatCurrency = (value) => value ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'N/A';
 const formatNumberInput = (input) => { let value = input.value.replace(/\D/g, ''); if(value) { value = new Intl.NumberFormat('pt-BR').format(value); } input.value = value; };
 
-// A função agora aceita um parâmetro 'origin'
+let previousPlayerDataCache = {}; // Usamos um cache para guardar os dados de vários jogadores
+
+const attributeMap = {
+    'profile-crossing': 'crossing', 'profile-dribbling': 'dribbling', 'profile-finishing': 'finishing',
+    'profile-free_kicks': 'free_kicks', 'profile-heading': 'heading', 'profile-long_shots': 'long_shots',
+    'profile-marking': 'marking', 'profile-tackling': 'tackling', 'profile-passing': 'passing',
+    'profile-penalties': 'penalties', 'profile-aggression': 'aggression', 'profile-anticipation': 'anticipation',
+    'profile-composure': 'composure', 'profile-concentration': 'concentration', 'profile-decisions': 'decisions',
+    'profile-determination': 'determination', 'profile-leadership': 'leadership', 'profile-positioning': 'positioning',
+    'profile-vision': 'vision', 'profile-work_rate': 'work_rate', 'profile-acceleration': 'acceleration',
+    'profile-agility': 'agility', 'profile-balance': 'balance', 'profile-stamina': 'stamina',
+    'profile-strength': 'strength', 'profile-pace': 'pace'
+};
+
+function setAttribute(elementId, newValue, currentPlayerId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    let changeIndicator = '';
+    const previousData = previousPlayerDataCache[currentPlayerId];
+
+    if (previousData) {
+        const attributeKey = attributeMap[elementId];
+        const oldValue = previousData[attributeKey];
+        if (newValue > oldValue) {
+            changeIndicator = '<span class="attr-change attr-up">▲</span>';
+        } else if (newValue < oldValue) {
+            changeIndicator = '<span class="attr-change attr-down">▼</span>';
+        }
+    }
+    element.parentElement.innerHTML = `<span id="${elementId}">${newValue}</span>${changeIndicator}`;
+}
+
+let currentProfilePlayerId = null;
+
 export async function showPlayerProfile(playerId, showView, origin = 'market') {
+    currentProfilePlayerId = parseInt(playerId);
     const player = await window.api.getPlayerDetails(playerId);
-    // Oculta a secção de transferências se não viemos do mercado
+    
     const transferSection = document.getElementById('profile-transfer-section');
     if (origin === 'squad') {
         transferSection.style.display = 'none';
@@ -24,37 +59,15 @@ export async function showPlayerProfile(playerId, showView, origin = 'market') {
     document.getElementById('profile-wage').textContent = formatCurrency(player.wage);
     document.getElementById('profile-contract').textContent = player.contract_expires;
     document.getElementById('profile-market-value').textContent = formatCurrency(player.market_value);
-// --- ATRIBUTOS TÉCNICOS ---
-document.getElementById('profile-crossing').textContent = player.crossing;
-document.getElementById('profile-dribbling').textContent = player.dribbling;
-document.getElementById('profile-finishing').textContent = player.finishing;
-document.getElementById('profile-free_kicks').textContent = player.free_kicks;
-document.getElementById('profile-heading').textContent = player.heading;
-document.getElementById('profile-long_shots').textContent = player.long_shots;
-document.getElementById('profile-marking').textContent = player.marking;
-document.getElementById('profile-tackling').textContent = player.tackling;
-document.getElementById('profile-passing').textContent = player.passing;
-document.getElementById('profile-penalties').textContent = player.penalties;
-
-// --- ATRIBUTOS MENTAIS ---
-document.getElementById('profile-aggression').textContent = player.aggression;
-document.getElementById('profile-anticipation').textContent = player.anticipation;
-document.getElementById('profile-composure').textContent = player.composure;
-document.getElementById('profile-concentration').textContent = player.concentration;
-document.getElementById('profile-decisions').textContent = player.decisions;
-document.getElementById('profile-determination').textContent = player.determination;
-document.getElementById('profile-leadership').textContent = player.leadership;
-document.getElementById('profile-positioning').textContent = player.positioning;
-document.getElementById('profile-vision').textContent = player.vision;
-document.getElementById('profile-work_rate').textContent = player.work_rate;
-
-// --- ATRIBUTOS FÍSICOS ---
-document.getElementById('profile-acceleration').textContent = player.acceleration;
-document.getElementById('profile-agility').textContent = player.agility;
-document.getElementById('profile-balance').textContent = player.balance;
-document.getElementById('profile-stamina').textContent = player.stamina;
-document.getElementById('profile-strength').textContent = player.strength;
-document.getElementById('profile-pace').textContent = player.pace;
+    
+    Object.keys(attributeMap).forEach(elementId => {
+        setAttribute(elementId, player[attributeMap[elementId]], currentProfilePlayerId);
+    });
+    
+    // --- CORREÇÃO NA LÓGICA DAS SETAS ---
+    // Atualiza o cache com os dados atuais DEPOIS de renderizar,
+    // para que na PRÓXIMA vez que você abrir, a comparação seja feita contra estes dados.
+    previousPlayerDataCache[player.id] = player;
 
     const offerInput = document.getElementById('profile-offer-amount');
     const offerButtonsContainer = document.getElementById('offer-suggestion-buttons');
@@ -75,8 +88,7 @@ document.getElementById('profile-pace').textContent = player.pace;
         });
         offerButtonsContainer.appendChild(button);
     });
-
-    // Configura o botão "Voltar"
+    
     const btnBack = document.getElementById('btn-back-from-profile');
     btnBack.onclick = () => showView(origin);
 

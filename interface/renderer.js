@@ -4,12 +4,14 @@ import { loadLeagueTable } from './views/competitionView.js';
 import { loadFixtures } from './views/calendarView.js';
 import { initMarketView } from './views/marketView.js';
 import { loadInitialGameState, initGameLoop } from './views/gameLoopView.js';
+import { initTrainingView } from './views/trainingView.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Dicionário de todas as telas e botões
     const views = {
         squad: document.getElementById('squad-view'),
         tactics: document.getElementById('tactics-view'),
+        training: document.getElementById('training-view'),
         finances: document.getElementById('finances-view'),
         market: document.getElementById('market-view'),
         player_profile: document.getElementById('player-profile-view'),
@@ -22,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const buttons = {
         squad: document.getElementById('btn-squad'),
         tactics: document.getElementById('btn-tactics'),
+        training: document.getElementById('btn-training'), 
         finances: document.getElementById('btn-finances'),
         market: document.getElementById('btn-market'),
         competition: document.getElementById('btn-competition'),
@@ -61,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initTacticsView();
         initMarketView(showView, refreshData);
         initGameLoop(showView, refreshData);
+        initTrainingView();
 
         showView('squad'); // Garante que a tela de elenco seja a primeira
     }
@@ -106,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners dos botões de navegação
     buttons.squad.addEventListener('click', () => showView('squad'));
     buttons.tactics.addEventListener('click', () => showView('tactics'));
+    buttons.training.addEventListener('click', () => showView('training'));
     buttons.finances.addEventListener('click', () => showView('finances'));
     buttons.market.addEventListener('click', () => {
         document.getElementById('search-name').value = '';
