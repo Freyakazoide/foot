@@ -2,9 +2,11 @@ const { ipcMain } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
+// CAMINHO CORRIGIDO: Procura na pasta pai (interface)
+const dbPath = path.join(__dirname, '../', 'foot.db');
+
 function registerPlayerHandlers() {
     ipcMain.handle('search-players', async (event, filters) => {
-        const dbPath = path.join(__dirname, '../../foot.db');
         const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
         return new Promise((resolve, reject) => {
             let query = `SELECT p.id, p.name, p.age, p.position, p.wage, c.name as club_name FROM players p JOIN clubs c ON p.club_id = c.id WHERE 1=1`;
@@ -26,7 +28,6 @@ function registerPlayerHandlers() {
     });
 
     ipcMain.handle('get-player-details', async (event, { playerId }) => {
-        const dbPath = path.join(__dirname, '../../foot.db');
         const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
         return new Promise((resolve, reject) => {
             const query = `SELECT p.*, c.name as club_name FROM players p JOIN clubs c ON p.club_id = c.id WHERE p.id = ?`;
@@ -45,7 +46,6 @@ function registerPlayerHandlers() {
     });
 
     ipcMain.handle('make-transfer-offer', async (event, { playerId, offerAmount }) => {
-        const dbPath = path.join(__dirname, '../../foot.db');
         const db = new sqlite3.Database(dbPath);
         return new Promise((resolve, reject) => {
             db.serialize(async () => {
@@ -96,7 +96,6 @@ function registerPlayerHandlers() {
     });
 
     ipcMain.handle('finalize-transfer', async (event, { negotiationDetails }) => {
-        const dbPath = path.join(__dirname, '../../foot.db');
         const db = new sqlite3.Database(dbPath);
         return new Promise((resolve, reject) => {
             db.serialize(async () => {
