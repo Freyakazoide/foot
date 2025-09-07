@@ -7,53 +7,52 @@ const util = require('util');
 const dbPath = path.join(__dirname, '../', 'foot.db');
 
 async function simulateAndSaveMatch(db, fixture) {
-    const scriptPath = path.join(__dirname, '../', 'run_match.py');
-    const pythonProcess = spawn('python', ['-X', 'utf8', scriptPath, '--home', fixture.home_club_id, '--away', fixture.away_club_id, '--db_path', dbPath]);
-    
-    pythonProcess.stderr.on('data', (data) => {
-        console.error(`[run_match.py LOG]: ${data.toString()}`);
-    });
+    const dbRun = util.promisify(db.run.bind(db));
 
+    // 1. Executa o script Python para obter o resultado do jogo
+const dbPath = path.join(__dirname, '../../foot.db'); // Pega o caminho do DB
+const scriptPath = path.join(__dirname, '../../run_match.py');
+const pythonProcess = spawn('python', [
+    '-X', 'utf8', 
+    scriptPath, 
+    '--home', fixture.home_club_id, 
+    '--away', fixture.away_club_id, 
+    '--db_path', dbPath
+]);
+    
     const resultJson = await new Promise((resolve, reject) => {
         let stdout = '';
+        let stderr = '';
         pythonProcess.stdout.on('data', (data) => { stdout += data.toString(); });
+        pythonProcess.stderr.on('data', (data) => { stderr += data.toString(); });
         pythonProcess.on('close', (code) => {
-            if (code !== 0) return reject(new Error(`O script Python terminou com erro.`));
-            if (!stdout) return reject(new Error('O script Python não produziu resultado.'));
+            if (code !== 0) return reject(new Error(stderr));
             resolve(stdout);
         });
     });
-
     const result = JSON.parse(resultJson);
 
-    const dbRun = util.promisify(db.run.bind(db));
-    const dbGet = util.promisify(db.get.bind(db));
-
+    // 2. Atualiza a tabela de jogos (fixtures) com o resultado
     await dbRun(`UPDATE fixtures SET home_goals = ?, away_goals = ?, is_played = 1 WHERE id = ?`, [result.home_goals, result.away_goals, fixture.id]);
-    
-    const homeTeamData = await dbGet(`SELECT * FROM league_tables WHERE club_id = ?`, [fixture.home_club_id]);
-    const awayTeamData = await dbGet(`SELECT * FROM league_tables WHERE club_id = ?`, [fixture.away_club_id]);
 
-    if(homeTeamData && awayTeamData) {
-        homeTeamData.played++;
-        awayTeamData.played++;
-        homeTeamData.goals_for += result.home_goals;
-        homeTeamData.goals_against += result.away_goals;
-        awayTeamData.goals_for += result.away_goals;
-        awayTeamData.goals_against += result.home_goals;
+    // 3. Prepara os dados para a atualização da tabela de classificação (league_tables)
+    let homeUpdate, awayUpdate;
 
-        if (result.home_goals > result.away_goals) {
-            homeTeamData.wins++; homeTeamData.points += 3; awayTeamData.losses++;
-        } else if (result.away_goals > result.home_goals) {
-            awayTeamData.wins++; awayTeamData.points += 3; homeTeamData.losses++;
-        } else {
-            homeTeamData.draws++; homeTeamData.points += 1; awayTeamData.draws++; awayTeamData.points += 1;
-        }
-
-        const updateQuery = `UPDATE league_tables SET played = ?, wins = ?, draws = ?, losses = ?, goals_for = ?, goals_against = ?, goal_difference = ?, points = ? WHERE club_id = ?`;
-        await dbRun(updateQuery, [homeTeamData.played, homeTeamData.wins, homeTeamData.draws, homeTeamData.losses, homeTeamData.goals_for, homeTeamData.goals_against, homeTeamData.goals_for - homeTeamData.goals_against, homeTeamData.points, fixture.home_club_id]);
-        await dbRun(updateQuery, [awayTeamData.played, awayTeamData.wins, awayTeamData.draws, awayTeamData.losses, awayTeamData.goals_for, awayTeamData.goals_against, awayTeamData.goals_for - awayTeamData.goals_against, awayTeamData.points, fixture.away_club_id]);
+    if (result.home_goals > result.away_goals) { // Vitória do time da casa
+        homeUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+        awayUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+    } else if (result.away_goals > result.home_goals) { // Vitória do time visitante
+        homeUpdate = `played = played + 1, losses = losses + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}, goal_difference = goal_difference + ${result.home_goals - result.away_goals}`;
+        awayUpdate = `played = played + 1, wins = wins + 1, points = points + 3, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}, goal_difference = goal_difference + ${result.away_goals - result.home_goals}`;
+    } else { // Empate
+        homeUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.home_goals}, goals_against = goals_against + ${result.away_goals}`;
+        awayUpdate = `played = played + 1, draws = draws + 1, points = points + 1, goals_for = goals_for + ${result.away_goals}, goals_against = goals_against + ${result.home_goals}`;
     }
+
+    // 4. Executa as atualizações na tabela de classificação
+    await dbRun(`UPDATE league_tables SET ${homeUpdate} WHERE club_id = ?`, [fixture.home_club_id]);
+    await dbRun(`UPDATE league_tables SET ${awayUpdate} WHERE club_id = ?`, [fixture.away_club_id]);
+
     return result;
 }
 
