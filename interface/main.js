@@ -65,6 +65,7 @@ app.whenReady().then(() => {
     registerDataHandlers(db);
     registerPlayerHandlers(db);
     registerTrainingHandlers(db);
+    registerTrainingReportHandler();
 });
 
 // Garante que o DB seja fechado ao sair

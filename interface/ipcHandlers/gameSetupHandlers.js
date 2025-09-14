@@ -31,7 +31,6 @@ function registerGameSetupHandlers(db) { // Recebe 'db'
     });
 
  ipcMain.handle('start-new-game', async (event, { clubId }) => {
-        const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE);
         const dbRun = util.promisify(db.run.bind(db));
         const dbGet = util.promisify(db.get.bind(db));
         try {
@@ -42,17 +41,14 @@ function registerGameSetupHandlers(db) { // Recebe 'db'
             console.log(`[HANDLER] JOGO INICIADO. Data confirmada na DB: ${updatedState.current_date}`);
             return { success: true, gameState: updatedState };
         } finally {
-            db.close();
         }
     });
 
     ipcMain.handle('get-game-state', async () => {
-        const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
         const dbGet = util.promisify(db.get.bind(db));
         try {
             return await dbGet("SELECT current_date FROM game_state WHERE id = 1");
         } finally {
-            db.close();
         }
     });
     
@@ -72,19 +68,15 @@ function registerGameSetupHandlers(db) { // Recebe 'db'
             return { success: false, message: error.message };
         }
     });
+    
+    // Handler for 'get-all-clubs'
+    ipcMain.handle('get-all-clubs', async () => {
+        const dbAll = util.promisify(db.all.bind(db));
+        try {
+            return await dbAll("SELECT id, name FROM clubs ORDER BY name");
+        } finally {
+        }
+    });
 }
-
-
-ipcMain.handle('debug-get-current-date', async () => {
-    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
-    const dbGet = util.promisify(db.get.bind(db));
-    try {
-        const state = await dbGet("SELECT current_date FROM game_state WHERE id = 1");
-        console.log(`[DEBUG] Leitura direta da DB. Data atual: ${state ? state.current_date : 'NÃO ENCONTRADA'}`);
-        return state;
-    } finally {
-        db.close();
-    }
-});
 
 module.exports = { registerGameSetupHandlers };
