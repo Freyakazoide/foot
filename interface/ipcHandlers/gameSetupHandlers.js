@@ -1,13 +1,11 @@
 const { ipcMain } = require('electron');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
 const util = require('util');
 const { spawn } = require('child_process');
-const fs = require('fs'); // Importe o módulo 'fs'
+const fs = require('fs');
 
 const dbPath = path.join(__dirname, '../', 'foot.db');
-const flagPath = path.join(__dirname, '../', 'new_world.flag'); // Caminho para o nosso arquivo sinalizador
-
+const flagPath = path.join(__dirname, '../', 'new_world.flag');
 
 function runPythonScript(scriptName, dbPathArg) {
     return new Promise((resolve, reject) => {
@@ -22,60 +20,40 @@ function runPythonScript(scriptName, dbPathArg) {
     });
 }
 
-function registerGameSetupHandlers(db) { // Recebe 'db'
-    ipcMain.handle('debug-get-current-date', async () => {
-        const dbGet = util.promisify(db.get.bind(db));
-        const state = await dbGet("SELECT current_date FROM game_state WHERE id = 1");
-        console.log(`[DEBUG] Leitura direta da DB. Data atual: ${state ? state.current_date : 'NÃO ENCONTRADA'}`);
-        return state;
+function registerGameSetupHandlers(db) {
+    const dbRun = util.promisify(db.run.bind(db));
+    const dbGet = util.promisify(db.get.bind(db));
+    const dbAll = util.promisify(db.all.bind(db));
+
+    ipcMain.handle('get-all-clubs', async () => {
+        return await dbAll("SELECT id, name FROM clubs ORDER BY name");
     });
 
- ipcMain.handle('start-new-game', async (event, { clubId }) => {
-        const dbRun = util.promisify(db.run.bind(db));
-        const dbGet = util.promisify(db.get.bind(db));
-        try {
-            const initialDate = '2025-01-20';
-            console.log(`[HANDLER] Tentando INICIAR JOGO. Gravando data: ${initialDate}`);
-            await dbRun("UPDATE game_state SET player_club_id = ?, current_date = ? WHERE id = 1", [clubId, initialDate]);
-            const updatedState = await dbGet("SELECT current_date FROM game_state WHERE id = 1");
-            console.log(`[HANDLER] JOGO INICIADO. Data confirmada na DB: ${updatedState.current_date}`);
-            return { success: true, gameState: updatedState };
-        } finally {
-        }
-    });
-
-    ipcMain.handle('get-game-state', async () => {
-        const dbGet = util.promisify(db.get.bind(db));
-        try {
-            return await dbGet("SELECT current_date FROM game_state WHERE id = 1");
-        } finally {
-        }
+    ipcMain.handle('start-new-game', async (event, { clubId }) => {
+        const initialDate = '2025-01-20';
+        await dbRun("UPDATE game_state SET player_club_id = ?, current_date = ? WHERE id = 1", [clubId, initialDate]);
+        const updatedState = await dbGet("SELECT current_date FROM game_state WHERE id = 1");
+        return { success: true, gameState: updatedState };
     });
     
     ipcMain.handle('generate-new-world', async () => {
         try {
-            console.log("[HANDLER] Iniciando script 'generate_new_world.py'...");
             await runPythonScript('generate_new_world.py', dbPath);
-            
-            // --- A MUDANÇA CRÍTICA ESTÁ AQUI ---
-            // Cria um arquivo vazio que sinaliza que um novo mundo foi gerado.
-            fs.writeFileSync(flagPath, ''); 
-            console.log("[HANDLER] Sinalizador 'new_world.flag' criado.");
-
+            fs.writeFileSync(flagPath, '');
             return { success: true };
         } catch (error) {
             console.error('Falha ao gerar novo mundo:', error);
             return { success: false, message: error.message };
         }
     });
-    
-    // Handler for 'get-all-clubs'
-    ipcMain.handle('get-all-clubs', async () => {
-        const dbAll = util.promisify(db.all.bind(db));
-        try {
-            return await dbAll("SELECT id, name FROM clubs ORDER BY name");
-        } finally {
-        }
+
+    ipcMain.handle('debug-get-current-date', async () => {
+        const state = await dbGet("SELECT current_date FROM game_state WHERE id = 1");
+        return state;
+    });
+
+    ipcMain.handle('get-game-state', async () => {
+        return await dbGet("SELECT current_date FROM game_state WHERE id = 1");
     });
 }
 

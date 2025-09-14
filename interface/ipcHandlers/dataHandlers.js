@@ -7,14 +7,14 @@ function registerDataHandlers(db) { // <-- Recebe a conexão 'db'
     const dbGet = util.promisify(db.get.bind(db));
     const dbAll = util.promisify(db.all.bind(db));
 
-    ipcMain.handle('get-players', async () => {
-        const state = await dbGet("SELECT player_club_id FROM game_state WHERE id = 1");
-        if (!state || !state.player_club_id) {
-            throw new Error("Game state or player club not found");
-        }
-        const sql = `SELECT id, name, position, age, wage, contract_expires, current_ability, potential_ability FROM players WHERE club_id = ? ORDER BY position`;
-        return await dbAll(sql, [state.player_club_id]);
-    });
+ipcMain.handle('get-players', async () => {
+    const state = await dbGet("SELECT player_club_id FROM game_state WHERE id = 1");
+    if (!state || !state.player_club_id) {
+        throw new Error("Game state or player club not found");
+    }
+    const sql = `SELECT * FROM players WHERE club_id = ? ORDER BY position`;
+    return await dbAll(sql, [state.player_club_id]);
+});
 
     ipcMain.handle('get-league-table', async () => {
         const sql = `SELECT lt.*, c.name AS club_name FROM league_tables lt JOIN clubs c ON lt.club_id = c.id ORDER BY lt.points DESC, lt.goal_difference DESC, lt.goals_for DESC`;

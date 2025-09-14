@@ -4,6 +4,7 @@ import { showPlayerProfile } from './playerProfileView.js';
 export let currentFormation = '442';
 export let startingLineup = Array(11).fill(null);
 let currentSquad = [];
+export let bench = [];
 let showViewCallback = null;
 
 // Elementos da DOM
@@ -16,6 +17,7 @@ const btnClearLineup = document.getElementById('btn-clear-lineup');
 const modal = document.getElementById('player-selection-modal');
 const modalPlayerList = document.getElementById('modal-player-list');
 const closeModalButton = document.getElementById('close-modal-button');
+
 
 const formationCoordinates = {
     '442': [ { top: '92%', left: '50%' }, { top: '75%', left: '15%' }, { top: '78%', left: '35%' }, { top: '78%', left: '65%' }, { top: '75%', left: '85%' }, { top: '50%', left: '18%' }, { top: '55%', left: '40%' }, { top: '55%', left: '60%' }, { top: '50%', left: '82%' }, { top: '25%', left: '40%' }, { top: '25%', left: '60%' }, ],
@@ -130,50 +132,34 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
     currentSquad = players;
     
     squadHeader.textContent = `Elenco - ${playerClubName}`;
-    
-    // --- LÓGICA DE RENDERIZAÇÃO TOTALMENTE NOVA ---
     const container = document.getElementById('player-list-container');
-    container.innerHTML = ''; // Limpa a visualização antiga
+    container.innerHTML = '';
 
     const positionGroups = {
-        Goleiros: [],
-        Defensores: [],
-        "Meio-campistas": [],
-        Atacantes: []
+        Goleiros: [], Defensores: [], "Meio-campistas": [], Atacantes: []
     };
 
-    // Agrupa os jogadores pela posição generalizada
     if (players && players.length > 0) {
         players.forEach(player => {
-            if (player.position === 'Goleiro') {
-                positionGroups.Goleiros.push(player);
-            } else if (player.position === 'Zagueiro') { // Adicione 'Lateral' etc. aqui se tiver
-                positionGroups.Defensores.push(player);
-            } else if (player.position === 'Meio-campo') {
-                positionGroups["Meio-campistas"].push(player);
-            } else if (player.position === 'Atacante') {
-                positionGroups.Atacantes.push(player);
-            }
+            if (player.position === 'Goleiro') positionGroups.Goleiros.push(player);
+            else if (player.position === 'Zagueiro') positionGroups.Defensores.push(player);
+            else if (player.position === 'Meio-campo') positionGroups["Meio-campistas"].push(player);
+            else if (player.position === 'Atacante') positionGroups.Atacantes.push(player);
         });
 
-        // Gera o HTML para cada grupo de posição
         for (const groupName in positionGroups) {
             const playersInGroup = positionGroups[groupName];
             if (playersInGroup.length > 0) {
-                // Cria o contêiner do grupo
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'squad-position-group';
                 
-                // Adiciona o título (Goleiros, Defensores, etc.)
                 const title = document.createElement('h3');
                 title.textContent = `${groupName} (${playersInGroup.length})`;
                 groupDiv.appendChild(title);
 
-                // Cria o grid para os cards
                 const cardContainer = document.createElement('div');
                 cardContainer.className = 'player-card-container';
 
-                // Cria um card para cada jogador no grupo
                 playersInGroup.forEach(player => {
                     const card = document.createElement('div');
                     card.className = 'player-card';
@@ -181,8 +167,21 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
 
                     const formattedWage = player.wage.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     
+                    // --- MUDANÇA: LÓGICA PARA EXIBIR STATUS DE LESÃO/SUSPENSÃO ---
+                    let statusHtml = '';
+                    if (player.is_injured) {
+                        card.style.borderLeftColor = '#e06c75'; // Vermelho
+                        const returnDate = new Date(player.injury_return_date);
+                        returnDate.setMinutes(returnDate.getMinutes() + returnDate.getTimezoneOffset());
+                        statusHtml = `<p class="player-status" style="color: #e06c75; font-weight: bold;">✚ Lesionado (retorno em ${returnDate.toLocaleDateString('pt-BR')})</p>`;
+                    } else if (player.is_suspended) {
+                        card.style.borderLeftColor = '#e5c07b'; // Amarelo
+                        statusHtml = `<p class="player-status" style="color: #e5c07b; font-weight: bold;">🟥 Suspenso (1 Jogo)</p>`;
+                    }
+                    
                     card.innerHTML = `
                         <p class="player-name">${player.name}</p>
+                        ${statusHtml} 
                         <p class="player-details">
                             <span>${player.age} anos</span>
                             <span>${formattedWage}/mês</span>
@@ -193,7 +192,6 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
                         </p>
                     `;
                     
-                    // Adiciona o evento de clique para ver o perfil
                     card.addEventListener('click', () => showPlayerProfile(player.id, showViewCallback, 'squad'));
                     cardContainer.appendChild(card);
                 });
@@ -203,8 +201,9 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
             }
         }
         
-        // Mantém a lógica para a tela de táticas
-        startingLineup = players.slice(0, 11);
+        startingLineup = players.filter(p => !p.is_injured && !p.is_suspended).slice(0, 11);
+        bench = players.filter(p => !startingLineup.some(starter => starter && starter.id === p.id));
+
         drawTaticsScreen();
 
     } else {
