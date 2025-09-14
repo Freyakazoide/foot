@@ -46,10 +46,21 @@ def main():
     args = parser.parse_args()
     db_path = args.db_path
 
+    # --- A CORREÇÃO REAL E DEFINITIVA ESTÁ AQUI ---
+    # Primeiro, deletamos o arquivo antigo para matar qualquer cache ou trava do sistema.
+    try:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            print(f"--- [ETAPA 1] Arquivo DB antigo '{db_path}' REMOVIDO com sucesso. ---", file=sys.stderr)
+    except OSError as e:
+        print(f"--- [ETAPA 1] ERRO ao remover o DB antigo: {e}. ---", file=sys.stderr)
+        # Se não conseguir deletar, o problema é mais sério (ex: permissão de arquivo), mas o erro ficará claro.
+
+    # Agora, e somente agora, conectamos (o que cria um arquivo novo e vazio).
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    print(f"--- Usando Base de Dados em: {db_path} ---", file=sys.stderr)
+    print(f"--- [ETAPA 2] Conectado e criando NOVA Base de Dados em: {db_path} ---", file=sys.stderr)
     
     cursor.executescript("""
         DROP TABLE IF EXISTS players; 
@@ -67,7 +78,8 @@ def main():
         CREATE TABLE game_state (id INTEGER PRIMARY KEY, current_date TEXT, player_club_id INTEGER);
         CREATE TABLE training (club_id INTEGER PRIMARY KEY, focus TEXT DEFAULT 'geral');
     """)
-    print("Estrutura da Base de Dados recriada corretamente.", file=sys.stderr)
+    print("[ETAPA 3] Estrutura da Base de Dados recriada corretamente.", file=sys.stderr)
+
 
     fake = Faker('pt_BR')
     clubs_data = [('Águias da Serra', 'Brasil'), ('Tubarões da Costa', 'Brasil'), ('Lobos do Deserto', 'Argentina'), ('Fantasmas do Sul', 'Argentina'), ('Leões da Montanha', 'Chile'), ('Serpentes do Vale', 'Chile'), ('Reis da Capital', 'Uruguai'), ('Corsários do Rio', 'Uruguai')] + [(fake.city() + " FC", fake.country()) for _ in range(12)]
@@ -86,7 +98,7 @@ def main():
         for _ in range(squad_size - sum(min_positions.values())): create_player(cursor, club_id, random.choice(list(min_positions.keys())))
         cursor.execute("INSERT OR IGNORE INTO training (club_id) VALUES (?)", (club_id,))
     conn.commit()
-    print(f"Clubes e {len(club_ids) * squad_size} jogadores gerados com planteis equilibrados.", file=sys.stderr)
+    print(f"[ETAPA 4] Clubes e {len(club_ids) * squad_size} jogadores gerados.", file=sys.stderr)
     
     cursor.execute("INSERT INTO competitions (name, country, type) VALUES (?, ?, ?)", ('Campeonato Brasileiro', 'Brasil', 'league'))
     competition_id = cursor.lastrowid
@@ -112,12 +124,13 @@ def main():
                            (competition_id, i + 1, current_match_date.strftime('%Y-%m-%d'), home_id, away_id))
         current_match_date += timedelta(days=7)
 
+    # Inserindo a data inicial correta
     cursor.execute("INSERT INTO game_state (id, current_date) VALUES (1, ?)", ("2025-01-20",))
     conn.commit()
-    print("Temporada e calendário gerados com datas.", file=sys.stderr)
+    print("[ETAPA 5] Temporada e calendário gerados. Data inicial: 2025-01-20.", file=sys.stderr)
     
     conn.close()
-    print("--- GERAÇÃO DO MUNDO CONCLUÍDA COM SUCESSO ---", file=sys.stderr)
+    print("--- [ETAPA 6] GERAÇÃO DO MUNDO CONCLUÍDA COM SUCESSO ---", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

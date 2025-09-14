@@ -18,4 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   getTrainingFocus: () => ipcRenderer.invoke('get-training-focus'),
   setTrainingFocus: (focus) => ipcRenderer.invoke('set-training-focus', focus),
   getLastTrainingReport: () => ipcRenderer.invoke('get-last-training-report'),
+  getMyFixtures: () => ipcRenderer.invoke('get-my-fixtures'),
+  debugGetCurrentDate: () => ipcRenderer.invoke('debug-get-current-date'),
+  restartApp: () => ipcRenderer.send('restart-app'),
 });

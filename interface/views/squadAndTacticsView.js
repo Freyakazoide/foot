@@ -130,24 +130,85 @@ export async function loadPlayersData(playerClubName, showViewFunc) {
     currentSquad = players;
     
     squadHeader.textContent = `Elenco - ${playerClubName}`;
-    playerListSquadView.innerHTML = '';
+    
+    // --- LÓGICA DE RENDERIZAÇÃO TOTALMENTE NOVA ---
+    const container = document.getElementById('player-list-container');
+    container.innerHTML = ''; // Limpa a visualização antiga
 
+    const positionGroups = {
+        Goleiros: [],
+        Defensores: [],
+        "Meio-campistas": [],
+        Atacantes: []
+    };
+
+    // Agrupa os jogadores pela posição generalizada
     if (players && players.length > 0) {
         players.forEach(player => {
-            const listItem = document.createElement('li');
-            const formattedWage = player.wage.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            listItem.textContent = `${player.name} (${player.position}, ${player.age} anos) | HA: ${player.current_ability} / PA: ${player.potential_ability} | ${formattedWage}/mês`;
-            listItem.dataset.playerId = player.id;
-            listItem.style.cursor = 'pointer';
-            listItem.addEventListener('click', () => showPlayerProfile(player.id, showViewCallback, 'squad'));
-            playerListSquadView.appendChild(listItem);
+            if (player.position === 'Goleiro') {
+                positionGroups.Goleiros.push(player);
+            } else if (player.position === 'Zagueiro') { // Adicione 'Lateral' etc. aqui se tiver
+                positionGroups.Defensores.push(player);
+            } else if (player.position === 'Meio-campo') {
+                positionGroups["Meio-campistas"].push(player);
+            } else if (player.position === 'Atacante') {
+                positionGroups.Atacantes.push(player);
+            }
         });
+
+        // Gera o HTML para cada grupo de posição
+        for (const groupName in positionGroups) {
+            const playersInGroup = positionGroups[groupName];
+            if (playersInGroup.length > 0) {
+                // Cria o contêiner do grupo
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'squad-position-group';
+                
+                // Adiciona o título (Goleiros, Defensores, etc.)
+                const title = document.createElement('h3');
+                title.textContent = `${groupName} (${playersInGroup.length})`;
+                groupDiv.appendChild(title);
+
+                // Cria o grid para os cards
+                const cardContainer = document.createElement('div');
+                cardContainer.className = 'player-card-container';
+
+                // Cria um card para cada jogador no grupo
+                playersInGroup.forEach(player => {
+                    const card = document.createElement('div');
+                    card.className = 'player-card';
+                    card.dataset.playerId = player.id;
+
+                    const formattedWage = player.wage.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    
+                    card.innerHTML = `
+                        <p class="player-name">${player.name}</p>
+                        <p class="player-details">
+                            <span>${player.age} anos</span>
+                            <span>${formattedWage}/mês</span>
+                        </p>
+                        <p class="player-stats">
+                            <span>HA: ${player.current_ability}</span>
+                            <span>PA: ${player.potential_ability}</span>
+                        </p>
+                    `;
+                    
+                    // Adiciona o evento de clique para ver o perfil
+                    card.addEventListener('click', () => showPlayerProfile(player.id, showViewCallback, 'squad'));
+                    cardContainer.appendChild(card);
+                });
+
+                groupDiv.appendChild(cardContainer);
+                container.appendChild(groupDiv);
+            }
+        }
         
+        // Mantém a lógica para a tela de táticas
         startingLineup = players.slice(0, 11);
         drawTaticsScreen();
 
     } else {
-        playerListSquadView.textContent = "Nenhum jogador encontrado.";
+        container.innerHTML = "<p>Nenhum jogador encontrado.</p>";
     }
 }
 

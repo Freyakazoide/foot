@@ -11,10 +11,11 @@ async function updateDateDisplay() {
     });
 }
 
-export async function loadInitialGameState() {
-    const state = await window.api.getGameState();
-    gameState.currentDate = state.current_date;
-    await updateDateDisplay();
+export async function setInitialGameState(initialState) {
+    if (initialState && initialState.current_date) {
+        gameState.currentDate = initialState.current_date;
+        await updateDateDisplay();
+    }
 }
 
 export function initGameLoop(showView, refreshData) {
@@ -173,14 +174,14 @@ export function initGameLoop(showView, refreshData) {
         }
     });
 
-    btnFinishMatchday.addEventListener('click', async () => {
-        // --- CORREÇÃO DO CALENDÁRIO APLICADA AQUI ---
-        // Forçamos a atualização dos jogos ANTES de mostrar a tela.
-        await refreshData.fixtures(); // Adicione 'await' aqui
-        
-        showView('calendar');
-        btnContinue.disabled = false;
-        btnContinue.textContent = 'Continuar';
-        [commentaryBox, scoreboard, btnFinishMatchday, matchTimer, squadsContainer, speedControls].forEach(el => el.style.display = 'none');
-    });
+btnFinishMatchday.addEventListener('click', async () => {
+    // --- CORREÇÃO DO CALENDÁRIO APLICADA AQUI ---
+    // Forçamos a atualização dos jogos ANTES de mostrar a tela.
+    await refreshData.fixtures(); // Adicione 'await' aqui
+    
+    showView('calendar');
+    btnContinue.disabled = false;
+    btnContinue.textContent = 'Continuar';
+    [commentaryBox, scoreboard, btnFinishMatchday, matchTimer, squadsContainer, speedControls].forEach(el => el.style.display = 'none');
+});
 }

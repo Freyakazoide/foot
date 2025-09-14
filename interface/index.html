@@ -59,6 +59,51 @@
         .modal-content li { padding: 8px; border-bottom: 1px solid #555; cursor: pointer; }
         .modal-content li:hover { background-color: #4fa8e2; color: #1e1e1e; }
         .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+
+          .squad-position-group {
+            margin-bottom: 25px;
+        }
+        .squad-position-group h3 {
+            color: var(--subheader-color);
+            border-bottom: 1px solid var(--item-border);
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        .player-card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .player-card {
+            background-color: #3a3a3a;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 5px solid var(--primary-color);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .player-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .player-card p {
+            margin: 0 0 8px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .player-card .player-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #f0f0f0;
+        }
+        .player-card .player-details {
+            font-size: 0.9em;
+            color: var(--text-color);
+        }
+        .player-card .player-stats span {
+            font-weight: bold;
+            color: #e5c07b;
+        }
     </style>
 </head>
 <body>
@@ -79,6 +124,7 @@
             <button id="btn-market">Mercado</button>
             <button id="btn-competition">Competição</button>
             <button id="btn-calendar">Calendário</button>
+            <button id="btn-my-calendar">Meu Calendário</button>
             <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
                 <div id="current-date-display" style="color: #e5c07b; font-weight: bold;"></div>
                 <button id="btn-continue" class="styled-button" style="background-color: #98c379; color: #1e1e1e; font-weight: bold;">Continuar</button>
@@ -93,7 +139,10 @@
             </div>
         </div>
         
-        <main id="squad-view"> <h2 id="squad-header">Elenco</h2> <ul id="player-list"></ul> </main>
+           <main id="squad-view"> 
+            <h2 id="squad-header">Elenco</h2> 
+            <div id="player-list-container"></div> 
+        </main>
         
         <main id="tactics-view">
             <h2>Esquema Tático</h2>
@@ -227,6 +276,12 @@
 
         <main id="competition-view"> <h2>Campeonato Brasileiro - Classificação</h2> <table id="league-table"></table> </main>
         <main id="calendar-view"> <h2>Calendário de Jogos</h2> <table id="fixtures-table"></table> </main>
+
+        <main id="my-calendar-view">
+        <h2>Meu Calendário</h2>
+        <table id="my-fixtures-table"></table>
+        </main>
+
 
         <main id="matchday-view" style="display: flex; flex-direction: column; text-align: center;">
             <h2>Dia de Jogo!</h2>

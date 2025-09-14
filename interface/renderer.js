@@ -3,11 +3,13 @@ import { loadPlayersData, initTacticsView } from './views/squadAndTacticsView.js
 import { loadLeagueTable } from './views/competitionView.js';
 import { loadFixtures } from './views/calendarView.js';
 import { initMarketView } from './views/marketView.js';
-import { loadInitialGameState, initGameLoop } from './views/gameLoopView.js';
+// Importa a nova função e remove a antiga que não será mais usada aqui
+import { setInitialGameState, initGameLoop } from './views/gameLoopView.js'; 
 import { initTrainingView } from './views/trainingView.js';
+import { loadMyFixtures } from './views/myCalendarView.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Dicionário de todas as telas e botões
+    // Dicionário de todas as telas e botões (sem alterações)
     const views = {
         squad: document.getElementById('squad-view'),
         tactics: document.getElementById('tactics-view'),
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         negotiation: document.getElementById('negotiation-view'),
         competition: document.getElementById('competition-view'),
         calendar: document.getElementById('calendar-view'),
+        myCalendar: document.getElementById('my-calendar-view'),
         matchday: document.getElementById('matchday-view'),
         start: document.getElementById('start-screen-view'),
     };
@@ -29,13 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
         market: document.getElementById('btn-market'),
         competition: document.getElementById('btn-competition'),
         calendar: document.getElementById('btn-calendar'),
+        myCalendar: document.getElementById('btn-my-calendar'),
     };
     const mainGameInterface = document.getElementById('main-game-interface');
     const clubSelection = document.getElementById('club-selection');
     const btnStartGame = document.getElementById('btn-start-game');
     const btnGenerateWorld = document.getElementById('btn-generate-world');
 
-    // Função central para mostrar a tela correta
     function showView(viewId) {
         Object.values(views).forEach(view => view.style.display = 'none');
         Object.values(buttons).forEach(btn => btn?.classList.remove('active'));
@@ -44,70 +47,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Função que carrega todos os dados do jogo
-    async function initialLoad(playerClubName) {
+    async function initialLoad(playerClubName, initialGameState) {
+        console.log(`[RENDERER] initialLoad chamado. Recebeu a data: ${initialGameState.current_date}`);
+        await setInitialGameState(initialGameState);
+
         const refreshData = {
             squad: () => loadPlayersData(playerClubName, showView),
             finances: loadFinanceData,
             fixtures: loadFixtures,
+            myFixtures: loadMyFixtures,
             leagueTable: loadLeagueTable,
         };
 
+        // Removemos a chamada antiga 'loadInitialGameState()' que não é mais necessária.
         await Promise.all([
-            loadInitialGameState(),
             refreshData.squad(),
             refreshData.leagueTable(),
             refreshData.fixtures(),
+            refreshData.myFixtures(),
             refreshData.finances()
         ]);
         
-        // As inicializações foram movidas para o clique do botão
         initTacticsView();
         initMarketView(showView, refreshData);
         initGameLoop(showView, refreshData);
         initTrainingView();
 
-        showView('squad'); // Garante que a tela de elenco seja a primeira
+        showView('squad');
     }
 
-    // Lógica da tela de "Novo Jogo"
-   async function initializeNewGameScreen() {
+    // Lógica da tela de "Novo Jogo" (agora está correta)
+    async function initializeNewGameScreen() {
         const clubs = await window.api.getAllClubs();
+        const debugDate = await window.api.debugGetCurrentDate();
+        console.log(`[RENDERER] Tela inicial carregada. Data atual na DB: ${debugDate.current_date}`);
+        
         clubSelection.innerHTML = clubs.map(club => `<option value="${club.id}">${club.name}</option>`).join('');
         
         btnStartGame.onclick = async () => {
             const selectedClubId = clubSelection.value;
             const selectedClubName = clubSelection.options[clubSelection.selectedIndex].text;
             
-            await window.api.startNewGame(selectedClubId);
+            console.log("[RENDERER] Botão 'Iniciar Jogo' clicado.");
+            const response = await window.api.startNewGame(selectedClubId);
             
-            views.start.style.display = 'none';
-            mainGameInterface.style.display = 'flex';
-            
-            await initialLoad(selectedClubName); 
+            if (response.success) {
+                console.log(`[RENDERER] 'startNewGame' retornou sucesso. Data recebida: ${response.gameState.current_date}`);
+                views.start.style.display = 'none';
+                mainGameInterface.style.display = 'flex';
+                await initialLoad(selectedClubName, response.gameState); 
+            } else {
+                alert("Houve um erro ao iniciar o novo jogo.");
+            }
         };
 
-        // SUBSTITUA O BLOCO 'btnGenerateWorld.onclick' INTEIRO POR ESTE:
-        btnGenerateWorld.onclick = async () => {
+          btnGenerateWorld.onclick = async () => {
             btnStartGame.disabled = true;
             btnGenerateWorld.disabled = true;
             btnGenerateWorld.textContent = 'Gerando...';
 
             const response = await window.api.generateNewWorld();
+            
             if (response.success) {
-                console.log("Reconexão com o novo banco de dados solicitada.");
-                // Recarrega a lista de clubes do novo mundo
-                await initializeNewGameScreen();
+                window.api.restartApp();
             } else {
                 alert(`Erro ao gerar o mundo: ${response.message}`);
+                btnStartGame.disabled = false;
+                btnGenerateWorld.disabled = false;
+                btnGenerateWorld.textContent = 'Gerar Novo Mundo';
             }
-
-            btnStartGame.disabled = false;
-            btnGenerateWorld.disabled = false;
-            btnGenerateWorld.textContent = 'Gerar Novo Mundo';
         };
     }
 
-    // Event Listeners dos botões de navegação
+    // Event Listeners (sem alterações)
     buttons.squad.addEventListener('click', () => showView('squad'));
     buttons.tactics.addEventListener('click', () => showView('tactics'));
     buttons.training.addEventListener('click', () => showView('training'));
@@ -119,7 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     buttons.competition.addEventListener('click', () => showView('competition'));
     buttons.calendar.addEventListener('click', () => showView('calendar'));
+    buttons.myCalendar.addEventListener('click', async () => {
+        await loadMyFixtures();
+        showView('myCalendar');
+    });
 
-    // Inicia a aplicação
     initializeNewGameScreen();
 });
